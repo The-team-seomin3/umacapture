@@ -37,6 +37,36 @@ already authorized by the owner; stop only affected unapproved scope or decision
   skipped tests are not passes. Show inspected real pixels when claiming capture
   or recognition evidence; use nearest-neighbor magnification for pixel checks.
 
+## Reading boundaries
+
+Use the issue/file map below as the **initial content scope for the active task**.
+Read its needed reference sections, symbols, callers and matching tests, not every
+linked document or every file in a linked directory. For #5 start with its current
+stage; the map is not a requirement to repeat all three PoCs.
+
+- Search filenames/symbols in named task files/roots first with
+  `rg --files <root> -g '<pattern>'` or `rg -n '<symbol>' <file>`, then read relevant
+  spans. Do not default to whole-repository recursive searches/listings,
+  full-file concatenation or dumps
+  of entire directories. Stop expanding once necessary evidence/counterchecks suffice
+  or a concrete blocker is identified.
+- **Do not read by default:** `.claude/`; vendored/native dependencies such as
+  `native/vendor/` and `windows/{clip,opencv,onnxruntime,ffmpeg}/`; SDK/cache/build
+  trees (`.fvm/`, `.dart_tool/`, `build/`, `dist/`, `native/cmake-build-*/`);
+  unrelated platform trees (`android/`, `ios/`, and web code for a Windows-only
+  task); bulk generated Dart/scene JSON; unrelated logs, scratch or private evidence.
+  Metadata needed for a build or a named run result is not a reason to dump its tree.
+- Expand only for a concrete caller/dependency, failed check, disputed generated
+  field, affected shared/platform contract or counter-evidence. State the reason
+  briefly, select the specific file/section/input, and reassess before expanding
+  again. For layouts start at builders; for private material use only authorized
+  task inputs. A routine justified read needs no new approval; it grants no new
+  access, implementation or publication authority.
+- These defaults never excuse skipping applicable instructions, required validation
+  or meaningful regression investigation. They are agent reading rules, not a
+  filesystem permission barrier. PR review likewise follows the exact diff plus
+  affected contracts/callers/tests, without a whole-repository preload.
+
 ## Find the needed document
 
 | Need | Read next |
@@ -55,7 +85,7 @@ already authorized by the owner; stop only affected unapproved scope or decision
 | #3: scroll coverage, completion and factor recognition | [native_api.cpp](native/src/core/native_api.cpp); [scene scraper](native/src/chara_detail/chara_detail_scene_scraper.cpp) (`SceneScrapingBox::ready`); [stitcher](native/src/chara_detail/chara_detail_scene_stitcher.cpp); [recognizer](native/src/chara_detail/chara_detail_recognizer.cpp) (`FactorRowReader`, `visibleSelfPrefix`, `FactorTabRecognizer`); [builders](native/tool/builder) |
 | #3: actual ONNX model wiring | [model.h](native/src/cv/model.h), [recognizer model factory](native/src/chara_detail/chara_detail_recognizer_models.cpp), recognizer builder/config; model inputs `factor` and `factor_rank` |
 | #4: existing producer and consumer JSON | [native record](native/src/chara_detail/chara_detail_record.h), [Dart record](lib/src/chara_detail/chara_detail_record.dart), [exporter](lib/src/chara_detail/exporter.dart) (`JsonExportData`, `JsonExporter`) |
-| #5: integrate only evidence-backed stages | Combine the above routes and [issue #5](https://github.com/The-team-seomin3/umacapture/issues/5); static #4 investigation need not wait for screenshots |
+| #5: integrate only evidence-backed stages | Use only the current stage's row above and [issue #5](https://github.com/The-team-seomin3/umacapture/issues/5); static #4 investigation need not wait for screenshots |
 | Relevant tests and runtime limits | [native factor tests](native/test/chara_detail), [integration manifest](native/test/integration/cases.json), [native test manual](native/test/README.md), matching [Dart tests](test) |
 
 These instructions cover this PoC/MVP work, not a general maintenance workflow.
