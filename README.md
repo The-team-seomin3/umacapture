@@ -33,7 +33,7 @@ falling back to a slower path.
 
 ## Docs
 
-under development
+Development guidance: [AGENTS.md](AGENTS.md). Native architecture and workflow references are linked from that entry.
 
 
 ## Community
