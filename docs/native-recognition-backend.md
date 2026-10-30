@@ -5,11 +5,10 @@ It explains **where to read** for each concern and supplements the things the
 code does not make obvious on its own — the custom coordinate system and the
 builder workflow.
 
-> This doc is overview-only. For building, running, and debugging the standalone
-> CLI (`umacapture_cli`), see the **`native-cli-dev`** skill
-> (`.claude/skills/native-cli-dev/SKILL.md`) — that covers the MSVC toolchain,
-> CMake/Ninja, subcommand mechanics, and the cdb debugger. This doc does not
-> repeat any of it.
+> This doc is overview-only. For building and running the standalone
+> CLI (`umacapture_cli`), see [portable operations guidance](agents/operations.md#native-cli)
+> for fresh MSVC/CMake/Ninja builds and subcommand usage, and
+> [verification requirements](agents/testing.md#native-verification) for evidence.
 
 ## What it does
 
@@ -188,7 +187,7 @@ serializes them to JSON (round-trip-verifying each).
   umacapture_cli build --assets_dir C:\Projects\umacapture\assets\config
   ```
 
-  (run from the build dir — see the `native-cli-dev` skill).
+  (run from the build dir; see [native CLI operations](agents/operations.md#native-cli)).
 
 **To change a coordinate or condition: edit the builder, rebuild the CLI, run
 `build`, then commit the regenerated JSON.** Do not hand-edit
