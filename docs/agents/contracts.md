@@ -94,34 +94,59 @@ needed; verify exact targets and never recursively follow dependency junctions.
 
 ## Research handoffs
 
-This local workflow applies when independent Korean capture, factor and JSON PoCs
-[#2](https://github.com/The-team-seomin3/umacapture/issues/2),
+This repository-local workflow applies when independent Korean capture, factor and
+JSON PoCs [#2](https://github.com/The-team-seomin3/umacapture/issues/2),
 [#3](https://github.com/The-team-seomin3/umacapture/issues/3) and
 [#4](https://github.com/The-team-seomin3/umacapture/issues/4) feed staged
-[MVP #5](https://github.com/The-team-seomin3/umacapture/issues/5).
+[MVP #5](https://github.com/The-team-seomin3/umacapture/issues/5). It adds no global
+agent-policy requirement or permission to implement #5.
 
-- **Record durable evidence:** consolidate material outcomes in an issue comment,
-  distinguishing `Verified / Failed / Not Tested`, source revision, input scope,
-  limitations and remaining decisions. Keep raw screenshots, clips, models and logs
-  private in authorized durable storage under the material safeguards above.
-  `.notes/` alone is not a durable handoff; an inaccessible local path is not
-  independent evidence. External cloud/Drive upload is optional and requires
-  appropriate authorization.
+- **Record a durable handoff once:** consolidate material findings in the relevant
+  issue's result comment: question, tested revision, input/method scope, concise
+  outcome, `Verified / Failed / Not Tested`, material assumptions, accessible evidence
+  pointers, substantive limitations and remaining decisions. Do not publish every
+  transient observation or duplicate the full investigation. PRs deliver authorized
+  tracked code/docs changes and verification, not research-only findings; only
+  reusable technical contracts/instructions belong in repository docs.
+- **Keep evidence private and inspectable:** retain raw screenshots/clips, model
+  predictions, logs and fixtures in authorized durable storage under the material
+  safeguards above. `.notes/` alone is not a durable handoff; an inaccessible local
+  path is not independently inspectable evidence. Do not put account identifiers
+  or private filesystem locations in public GitHub posts. Cloud/Drive sharing is
+  optional and requires authorization; never assume a connection or upload private
+  material automatically. When useful, a compact index records input/case ID,
+  revision/model version, expected vs observed result, status and an accessible
+  pointer. Use hashes only when identity/integrity needs them; no new storage or
+  indexing infrastructure is required.
 - **Receive and verify proportionately:** refresh relevant issues/comments, current
-  code, owner decisions and overlapping work. Check implementation-critical claims
-  independently: Korean window/capture observations (#2), factor groups and actual
-  model predictions (#3), and real JSON producer/consumer compatibility (#4).
-  Reuse reliable mechanical inventories without repeating the entire investigation.
-  Separate observed evidence from inference, unknowns and agent-proposed design.
-- **Respect authority and report disposition:** research publication, PoC status,
+  code, actual requirements, owner decisions and overlapping work. Any agent's
+  findings are claims/evidence, not verified facts or binding decisions merely
+  because they were posted. Before relying on a critical claim, check its source,
+  revision/freshness, methodology and input scope against that current context;
+  reproduce critical runtime behavior or consumer parsing when feasible. Focus on
+  claims affecting behavior, saved values, contracts, compatibility or scope:
+  Korean window/capture observations (#2), factor groups and real model predictions
+  (#3), and actual JSON producer/consumer compatibility (#4). Reuse reliable
+  mechanical inventories and reproducible measurements selectively, without
+  repeating every low-risk lookup or the whole investigation. Distinguish
+  source-supported facts, observed execution, inference, unknowns and proposed design.
+  Missing models, clips or environment mean `Not Tested`, never Passed.
+- **Respect authority and record disposition:** research publication, PoC status,
   suggested solutions and labels grant no new implementation authority. Continue
-  already authorized, well-scoped work without unnecessary reapproval; hold only
-  affected unapproved scope or unsupported material claims. Record consequential
-  adopted, partially adopted, deferred, already resolved or insufficient-evidence
-  dispositions concisely with links, within authorized publication boundaries.
-- **Choose delegation by total effort:** use an independent researcher such as
-  Antigravity when reusable inputs or substantive comparison reduce combined
-  research, handoff, verification and rework. Prefer direct implementer inspection
-  or a deterministic script when checking research costs as much as doing it.
-  Research is not a mandatory gateway; claim no quantified savings without evidence.
-  An issue comment does not start or wake an idle agent.
+  already authorized, well-scoped work without unnecessary reapproval. If evidence
+  is inaccessible/contradictory or scope unapproved, hold only the affected decision
+  and escalate concrete options; do not invent confirmation. Record the critical
+  findings relied on, verification actually performed and consequential adopted,
+  partially adopted, deferred, already resolved or insufficient-evidence dispositions
+  concisely with links, within authorized publication boundaries. No obligatory full
+  duplicate report or unrelated test run is required.
+- **Choose delegation by total effort:** compare delegated research + coordination/
+  handoff + implementer verification + expected error/rework against direct
+  implementer investigation or a deterministic script. Use measured effort/cost
+  when available; otherwise judge qualitatively and claim no numerical savings.
+  An independent researcher such as Antigravity is useful for reusable observations/
+  reference data, otherwise inaccessible environments or substantive repeatable
+  extraction/comparison that reduces work after verification. Prefer direct work
+  for small source lookups, trivial schema inventories, tightly coupled design or
+  research the implementer would have to redo in full. Research is not a mandatory
+  gateway; an issue comment does not start or wake an idle agent.
