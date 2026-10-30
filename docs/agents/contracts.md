@@ -65,9 +65,9 @@ policy, required researcher, storage infrastructure or implementation authorizat
    in authorized durable storage under the existing `testdata/` non-destructive rule.
    `.notes/` alone is temporary; an inaccessible local path is not independent evidence.
    Do not publish account identifiers or private filesystem paths. Cloud/Drive sharing
-   is optional, needs authorization and must not be assumed connected. An optional
-   compact index can add case/model version and evidence pointers; hash only when
-   identity/integrity needs it.
+   is optional, needs authorization and must not be assumed connected. Reusable
+   substantive results need the [local index below](#local-storage-and-worktree-handoff);
+   transient observations do not. Hash only when identity/integrity needs it.
 3. **Verify what matters:** refresh issues/comments, code, owner decisions and overlap.
    Any agent's report is a claim, not a proven fact or binding decision. Check source,
    revision/freshness, methodology and input scope; reproduce critical capture (#2),
@@ -87,3 +87,43 @@ policy, required researcher, storage infrastructure or implementation authorizat
    inputs or substantive repeatable comparison. Prefer direct work for trivial lookups,
    small schema lists, tightly coupled design or research needing full repetition.
    A comment does not start/wake an idle agent, and a researcher is not a mandatory gate.
+
+## Local storage and worktree handoff
+
+For reusable substantive research, use `~/.agents/research/umacapture/issue-<N>/`;
+`~` is the current user's home. Keep its resolved location outside every worktree,
+not a link into one. It is private local data, not committed repo content or a new
+service. A same-user agent derives this location from the issue number; another
+account/machine needs a separately authorized accessible handoff, not a guessed pass.
+
+- **Layout:** `INDEX.md` lists completed runs; each new run gets a unique
+  `YYYYMMDDTHHMMSSZ-<agent>-<suffix>/` with `SUMMARY.md` and any needed `evidence/`.
+  Never overwrite an existing run. Serialize same-index updates, reread before
+  writing, preserve other entries, and record corrections as a new run.
+- **Minimum index row:** run ID, tested commit, input/model scope (or Unknown),
+  `Verified / Failed / Not Tested`, relative SUMMARY link and issue-result permalink
+  (Pending until published). A compact form is:
+
+  ```text
+  | Run | Commit; inputs/models | Status | Summary | Issue result |
+  | <run-id> | <sha>; <scope or Unknown> | <status> | [summary](<run-id>/SUMMARY.md) | <permalink or Pending> |
+  ```
+
+- **Summary:** record the question, environment/commands, expected vs observed result,
+  limits/remaining decisions and needed evidence as paths relative to the run.
+  Missing evidence is Not Tested or insufficient evidence, never silently Verified.
+  A receiver reads the index/summary first and opens only implementation-critical,
+  authorized inputs, checking source freshness as above. An unreadable index is an
+  unavailable handoff, not a reason to scan private trees. Public issue comments use
+  the logical issue/run ID plus a sanitized result, never expanded private paths or
+  raw account data; add the published permalink to the local index afterward.
+- **Before authorized worktree cleanup:** identify this task's reusable results and
+  dependencies still inside it (including ignored scratch, captures and build output).
+  Copy needed files into a new durable run, not a symlink/reference back to the tree;
+  preserve originals. Compare copied files' hashes, then open the index, summary and
+  required evidence from the receiving location and confirm no required link resolves
+  into the tree being removed. Complete the local handoff before cleanup; if issue
+  publication is unavailable, record Pending and the next action in the index. If copy,
+  access or verification fails, stop cleanup that would lose that result and report
+  the missing item/next action; unrelated authorized work can continue. This rule
+  grants no cleanup permission and does not waive `testdata/` non-deletion rules.
