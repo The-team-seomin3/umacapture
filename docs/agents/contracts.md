@@ -91,3 +91,37 @@ Comments state derivations inline, without ignored paths. Commit/PR derivation
 references have the narrow exception in [Git guidance](development.md#git-and-publication).
 Disposable build outputs (`native/cmake-build-*`, `build/`) may be removed when
 needed; verify exact targets and never recursively follow dependency junctions.
+
+## Research handoffs
+
+This local workflow applies when independent Korean capture, factor and JSON PoCs
+[#2](https://github.com/The-team-seomin3/umacapture/issues/2),
+[#3](https://github.com/The-team-seomin3/umacapture/issues/3) and
+[#4](https://github.com/The-team-seomin3/umacapture/issues/4) feed staged
+[MVP #5](https://github.com/The-team-seomin3/umacapture/issues/5).
+
+- **Record durable evidence:** consolidate material outcomes in an issue comment,
+  distinguishing `Verified / Failed / Not Tested`, source revision, input scope,
+  limitations and remaining decisions. Keep raw screenshots, clips, models and logs
+  private in authorized durable storage under the material safeguards above.
+  `.notes/` alone is not a durable handoff; an inaccessible local path is not
+  independent evidence. External cloud/Drive upload is optional and requires
+  appropriate authorization.
+- **Receive and verify proportionately:** refresh relevant issues/comments, current
+  code, owner decisions and overlapping work. Check implementation-critical claims
+  independently: Korean window/capture observations (#2), factor groups and actual
+  model predictions (#3), and real JSON producer/consumer compatibility (#4).
+  Reuse reliable mechanical inventories without repeating the entire investigation.
+  Separate observed evidence from inference, unknowns and agent-proposed design.
+- **Respect authority and report disposition:** research publication, PoC status,
+  suggested solutions and labels grant no new implementation authority. Continue
+  already authorized, well-scoped work without unnecessary reapproval; hold only
+  affected unapproved scope or unsupported material claims. Record consequential
+  adopted, partially adopted, deferred, already resolved or insufficient-evidence
+  dispositions concisely with links, within authorized publication boundaries.
+- **Choose delegation by total effort:** use an independent researcher such as
+  Antigravity when reusable inputs or substantive comparison reduce combined
+  research, handoff, verification and rework. Prefer direct implementer inspection
+  or a deterministic script when checking research costs as much as doing it.
+  Research is not a mandatory gateway; claim no quantified savings without evidence.
+  An issue comment does not start or wake an idle agent.
