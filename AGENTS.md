@@ -68,6 +68,7 @@ is advice, not merge permission. Do not trade verification for context savings.
 | --- | --- |
 | Setup, native CLI build/run/debug, generated layout updates | [Operations](docs/agents/operations.md#setup-and-build); [builder workflow](docs/native-recognition-backend.md#builder-workflow) |
 | Supported inputs, persisted-data risks, producer shaping, test material | [Contracts and material](docs/agents/contracts.md) |
+| Consuming independent research for Korean capture/factor/JSON PoCs #2–#4 or MVP #5 | Read the issue result/handoff and accessible evidence first; follow [research handoffs](docs/agents/contracts.md#research-handoffs). Research publication grants no implementation authority |
 | Test changes; native recognition/capture verification | [Testing](docs/agents/testing.md); [native test manual](native/test/README.md); [live harness](docs/live-capture-harness.md) where applicable |
 | UI/text/theme changes | [UI and gallery](docs/agents/development.md#ui-text-and-theme-gallery); refresh gallery after any UI change under `lib/` |
 | Final pre-PR suite explicitly requested by the user | [Final check](docs/agents/pre-pr.md); creation of a PR alone does not trigger this suite |

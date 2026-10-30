@@ -105,6 +105,16 @@ an unconditional new test obligation. The owning location is [testing](testing.m
 
 No unresolved material project-policy disagreement remains in this migration.
 
+## Repository-local research handoff clarification
+
+The [owner's 2026-10-31 clarification](https://github.com/The-team-seomin3/umacapture/issues/6#issuecomment-6527188613)
+adds a local PoC #2–#4 to MVP #5 research-handoff rule, separate from the 17-source
+Claude migration inventory. The [root task route](../../AGENTS.md#load-the-reference-for-the-task)
+leads to [research handoffs](contracts.md#research-handoffs): durable private evidence,
+implementation-critical verification, approval/disposition and proportional delegation.
+This adds no global-policy requirement, automatic upload, runtime implementation,
+merge/deployment permission or idle-agent dispatch.
+
 ## Navigation and validation contract
 
 Check local links/anchors and every concrete route against the actual tree; compare
