@@ -107,13 +107,31 @@ No unresolved material project-policy disagreement remains in this migration.
 
 ## Repository-local research handoff clarification
 
-The [owner's 2026-10-31 clarification](https://github.com/The-team-seomin3/umacapture/issues/6#issuecomment-6527188613)
-adds a local PoC #2–#4 to MVP #5 research-handoff rule, separate from the 17-source
-Claude migration inventory. The [root task route](../../AGENTS.md#load-the-reference-for-the-task)
-leads to [research handoffs](contracts.md#research-handoffs): durable private evidence,
-implementation-critical verification, approval/disposition and proportional delegation.
-This adds no global-policy requirement, automatic upload, runtime implementation,
-merge/deployment permission or idle-agent dispatch.
+The owner's 2026-10-31 [evidence, verification and delegation direction](https://github.com/The-team-seomin3/umacapture/issues/6#issuecomment-6526913913),
+narrowed by the [repository-only clarification](https://github.com/The-team-seomin3/umacapture/issues/6#issuecomment-6527188613),
+adds the PoC #2-#4 to MVP #5 handoff rule. These two sources supplement the original
+17-file migration inventory; they do not change its source count. The short
+[root trigger](../../AGENTS.md#load-the-reference-for-the-task) routes to the single
+[owning handoff section](contracts.md#research-handoffs).
+
+| Latest comment requirement | Neutral owner / acceptance |
+| --- | --- |
+| Consolidated issue result, status/revision/input scope, limits/decisions; research vs PR/docs | Research handoffs: durable handoff once; reusable contracts/instructions only in repo docs |
+| Durable raw evidence, privacy/accessibility, optional index/model version/expected-vs-observed; no automatic cloud upload | Research handoffs: private and inspectable evidence; existing material rules remain intact |
+| Source/freshness/method check; reproduce critical behavior/parsing, reuse reliable low-risk work; explicit unknowns | Research handoffs: proportionate receiving verification; missing inputs are Not Tested |
+| Claims do not become facts/decisions/authority; continue authorized work, hold affected decisions only, concise adopted/deferred dispositions and actual verification | Research handoffs: receive/verify plus authority/disposition; no duplicate full report |
+| Total research/handoff/verification/rework vs direct/script cost; qualitative fallback; useful and unsuitable cases; no required researcher or idle dispatch | Research handoffs: total-effort delegation choice |
+| Scope only to this repository's #2-#5 workflow | Root trigger and handoff opening; no global-policy edits, automatic upload, runtime implementation or merge/deployment permission |
+
+Validation walks the root link to the owning section and applies the text to #2
+capture evidence, #3 missing-model evidence, #4 consumer parsing, conflicting or
+unapproved claims, and a trivial lookup versus reusable research. These are prose
+navigation/requirement checks, not execution of those PoCs or an agent dispatch.
+The follow-up read-through covered seven situations: capture evidence intake,
+missing-model status, JSON consumer verification, conflicting/unapproved claims,
+a trivial lookup, reusable independent research, and private evidence sharing.
+A read-only follow-up check passed across all eight guidance documents: 115 local
+links/anchors, all 17 original sources, 21 navigation paths and ten symbols.
 
 ## Navigation and validation contract
 
@@ -122,7 +140,7 @@ source inventory to this matrix. Validate #2 capture through discovery/recorder/
 and platform targets; #3 through scene completion, prefix/full-list distinction,
 models/builders and native tests; #4 through native/Dart factor and exporter contracts;
 #5 by combining those routes without assuming a factor-only completed record.
-On 2026-10-31 an ad-hoc read-only Node check passed for all eight new documents:
+At initial migration HEAD c23a6cb, an ad-hoc read-only Node check passed for all eight new documents:
 112 local links/anchors, all 17 inventoried sources, 21 concrete navigation paths
 across capture/factors/JSON/verification, and ten named entry symbols. The root
 entry is approximately 1,000 words; detailed procedures are selectively routed.
