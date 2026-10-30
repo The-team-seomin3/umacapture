@@ -33,7 +33,7 @@ falling back to a slower path.
 
 ## Docs
 
-Development guidance: [AGENTS.md](AGENTS.md). Native architecture and workflow references are linked from that entry.
+PoC/MVP development guidance: [AGENTS.md](AGENTS.md), with links to contracts, tooling, verification and native architecture.
 
 
 ## Community

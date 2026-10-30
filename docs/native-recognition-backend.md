@@ -5,9 +5,9 @@ It explains **where to read** for each concern and supplements the things the
 code does not make obvious on its own — the custom coordinate system and the
 builder workflow.
 
-> This doc is overview-only. For building, running and debugging the standalone
+> This doc is overview-only. For building and running the standalone
 > CLI (`umacapture_cli`), see [portable operations guidance](agents/operations.md#native-cli)
-> for MSVC/CMake/Ninja, subcommands and debugging, and
+> for fresh MSVC/CMake/Ninja builds and subcommand usage, and
 > [verification requirements](agents/testing.md#native-verification) for evidence.
 
 ## What it does
