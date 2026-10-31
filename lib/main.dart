@@ -319,15 +319,11 @@ class _AppInstanceWaitingApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return EasyLocalization(
-      path: "assets/translations",
-      useOnlyLangCode: true,
-      useFallbackTranslations: true,
-      supportedLocales: const [Locale('ja')],
-      fallbackLocale: const Locale('ja'),
+    return AppLocalization(
       child: Builder(
         builder: (context) => MaterialApp(
           debugShowCheckedModeBanner: false,
+          theme: ThemeData(fontFamily: context.locale.languageCode == 'ko' ? 'Malgun Gothic' : null),
           localizationsDelegates: context.localizationDelegates,
           supportedLocales: context.supportedLocales,
           locale: context.locale,
@@ -405,12 +401,7 @@ void run() {
       //   if (kDebugMode) ProviderLogger(),
       // ],
       // EasyLocalization must be placed at the root. Otherwise, hot reload will not work for some reason.
-      child: EasyLocalization(
-        path: "assets/translations",
-        useOnlyLangCode: true,
-        useFallbackTranslations: true,
-        supportedLocales: const [Locale('ja')],
-        fallbackLocale: const Locale('ja'),
+      child: AppLocalization(
         child: ApplicationWidget(),
       ),
     ),

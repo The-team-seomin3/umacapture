@@ -33,6 +33,9 @@ falling back to a slower path.
 
 ## Docs
 
+Application UI: [Korean localization and validation](docs/korean-ui-localization.md).
+Windows desktop starts in Korean; game-client recognition support is separate.
+
 PoC/MVP development guidance: [AGENTS.md](AGENTS.md), with links to contracts, tooling, verification and native architecture.
 
 

@@ -422,7 +422,7 @@ class ApplicationWidgetState extends ConsumerState<ApplicationWidget> {
         subThemesData: const FlexSubThemesData(outlinedButtonOutlineSchemeColor: SchemeColor.primary),
         visualDensity: FlexColorScheme.comfortablePlatformDensity,
         useMaterial3: true,
-        fontFamily: GoogleFonts.mPlusRounded1c().fontFamily,
+        fontFamily: context.locale.languageCode == 'ko' ? 'Malgun Gothic' : GoogleFonts.mPlusRounded1c().fontFamily,
       ),
     );
 
@@ -435,7 +435,7 @@ class ApplicationWidgetState extends ConsumerState<ApplicationWidget> {
         subThemesData: const FlexSubThemesData(outlinedButtonOutlineSchemeColor: SchemeColor.primary),
         visualDensity: FlexColorScheme.comfortablePlatformDensity,
         useMaterial3: true,
-        fontFamily: GoogleFonts.mPlusRounded1c().fontFamily,
+        fontFamily: context.locale.languageCode == 'ko' ? 'Malgun Gothic' : GoogleFonts.mPlusRounded1c().fontFamily,
       ),
     );
 
