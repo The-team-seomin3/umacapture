@@ -9,6 +9,11 @@ rerun by this documentation change.
 
 ## Current workflow
 
+**#5 source-delivery correction (2026-10-31):** the previously local reviewed-output
+implementation is included in this change at [tool/kr_factor_ocr](../tool/kr_factor_ocr/README.md).
+Commit/PR publication was requested after the saved-corpus delivery. Merge, release
+and routine KR-only acceptance remain separate. Other areas below retain their dated evidence.
+
 Owner-confirmed status (2026-10-31): automatic Korean factor OCR currently has low
 recognition accuracy, and AI models are being used to supplement recognition. This
 workflow is still being refined; factors require verification or explicit confirmation
@@ -65,7 +70,7 @@ for this approved workflow. See [factor contracts](agents/contracts.md#scope-and
 | Capture PoC A [#2](https://github.com/The-team-seomin3/umacapture/issues/2) | Closed, bounded research accepted | [Owner-operated upstream v0.3.0 capture](https://github.com/The-team-seomin3/umacapture/issues/2#issuecomment-6538218942) supplied readable preview and stitched output. Raw screenshot CLI, live Win32 class and JP runtime regression were not tested; no capture rewrite is justified by this case |
 | Factor feasibility PoC B [#3](https://github.com/The-team-seomin3/umacapture/issues/3) | Closed, one-capture study | 95 rows (31/33/31), 95 checked stars and reference-ID mappings. [Strict OCR study](https://github.com/The-team-seomin3/umacapture/issues/3#issuecomment-6538877856): 79 exact candidates / 16 requiring review. [Master mapping](https://github.com/The-team-seomin3/umacapture/issues/3#issuecomment-6539003891) is not automatic OCR accuracy or freshness certification |
 | Record compatibility PoC C [#4](https://github.com/The-team-seomin3/umacapture/issues/4) | Closed, synthetic contract investigation | [Executed handoff](https://github.com/The-team-seomin3/umacapture/issues/4#issuecomment-6540079527): 12 Dart tests, fresh native codec and isolated structure/file checks. Full-record/KR parsing works for tested inputs; GUI export wrapper and app filename behavior remain distinct from Evaluator import |
-| Reviewed factor MVP [#5](https://github.com/The-team-seomin3/umacapture/issues/5) | Uncommitted local implementation; saved-corpus verification and outputs delivered; issue open | [Baseline implementation](https://github.com/The-team-seomin3/umacapture/issues/5#issuecomment-6540427803), [all 1,139 additional source-visible rows/groups verified](https://github.com/The-team-seomin3/umacapture/issues/5#issuecomment-6542693845), then [14 full KR records / 1,234 reviewed rows exported and reader-checked](https://github.com/The-team-seomin3/umacapture/issues/5#issuecomment-6542817561). Latest delivery: 14 actual-artifact Dart tests and a fresh native codec probe; 14 matched / 1,220 corrected against JP. Live/generalization/KR-only acceptance remains separate |
+| Reviewed factor MVP [#5](https://github.com/The-team-seomin3/umacapture/issues/5) | Reviewed offline implementation included in this source change; saved-corpus verification and outputs delivered; issue open | [Baseline implementation](https://github.com/The-team-seomin3/umacapture/issues/5#issuecomment-6540427803), [all 1,139 additional source-visible rows/groups verified](https://github.com/The-team-seomin3/umacapture/issues/5#issuecomment-6542693845), then [14 full KR records / 1,234 reviewed rows exported and reader-checked](https://github.com/The-team-seomin3/umacapture/issues/5#issuecomment-6542817561). Latest delivery: 14 actual-artifact Dart tests and a fresh native codec probe; 14 matched / 1,220 corrected against JP. Live/generalization/KR-only acceptance remains separate |
 | Korean application UI [#10](https://github.com/The-team-seomin3/umacapture/issues/10) | [PR #12 merged](https://github.com/The-team-seomin3/umacapture/pull/12); issue open | Korean Windows startup, Japanese fallback and bundled Nanum Gothic. [60 widget previews](validation/korean-ui-preview/README.md), [initial native handoff](https://github.com/The-team-seomin3/umacapture/issues/10#issuecomment-6541112643), then [#19 integrated narrow/restart evidence](https://github.com/The-team-seomin3/umacapture/pull/19). Full native page/dialog/DPI acceptance remains incomplete |
 | Windows portable package [#11](https://github.com/The-team-seomin3/umacapture/issues/11) | [PR #19 open](https://github.com/The-team-seomin3/umacapture/pull/19), includes earlier #18 source; local ZIP validated for bounded use | Fresh Release, all 119 extracted files, launch/restart provenance, selected Korean narrow/light/dark states and first-run module download verified in its report. App-PID TCP snapshots matched module-host addresses; not a TLS/packet/UDP/child-process audit. No public binary release or universal clean-machine guarantee |
 | Upstream isolation [#15](https://github.com/The-team-seomin3/umacapture/issues/15) | [PR #18 merged](https://github.com/The-team-seomin3/umacapture/pull/18); source in develop | Reporting/app updates disabled, layout retained with unavailable struck-through controls, required module fetches preserved. Latest bounded review correction reports 209 tests. The standalone bundle failure is historical; #19 reports a successful integrated build/smoke using earlier #18 source, not every later HEAD |
@@ -100,7 +105,10 @@ read from each PR, not inferred here.
   current task boundaries and existing tooling.
 - [Native architecture](native-recognition-backend.md): the unchanged capture,
   stitch and Japanese recognition pipeline.
-- #5's tool README remains in its local implementation checkout; use the issue handoff.
+- [Korean offline factor tool](../tool/kr_factor_ocr/README.md): local inputs, candidate diagnostics,
+  explicit review, source-preserving full-record export and safe failure. The
+  [evidence-preservation handoff](https://github.com/The-team-seomin3/umacapture/issues/5#issuecomment-6542958301)
+  retains all 1,234 original pixel/label pairs privately; no account data is bundled.
   The merged [network policy](fork-network-policy.md) describes reporting/update isolation.
   #19 publishes the [packaging manual](https://github.com/The-team-seomin3/umacapture/blob/39590f2778a040f3da42807775885e61caa43b14/docs/windows-portable.md)
   and [integrated validation report](https://github.com/The-team-seomin3/umacapture/blob/39590f2778a040f3da42807775885e61caa43b14/docs/validation/windows-isolation-integration-2026-10-31.md).
