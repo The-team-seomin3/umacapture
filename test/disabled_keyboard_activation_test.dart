@@ -9,12 +9,9 @@
 // stayed green because they all read `Disabled.disabled`, a flag, or pressed with `tester.tap`,
 // a pointer event. Neither can see the hole.
 //
-// WHAT IS ASSERTED, AND WHY IT CANNOT PASS BY ACCIDENT. Every case below is a pair: the blocked
-// state AND the same control in the state where it is genuinely offered. Without the second half,
-// "the callback did not run" and "the test never managed to press anything" are the same reading --
-// and a suite that cannot tell them apart would go green if `sendKeyEvent` stopped working, if the
-// finder stopped matching, or if the card stopped mounting the control at all. The positive control
-// is what makes the negative one evidence.
+// L1 pairs the blocked state with an enabled plain button to prove the keyboard helper works.
+// L2 keeps the normal capture/import controls reachable when idle. The fork's retired reporting
+// controls remain visible, but must never take focus or request a dialog, even when idle.
 //
 // The wrong implementations these cases are here to exclude, named:
 //   * `Disabled` blocks the pointer only (the shipped defect) -- L1 subject fires, L2 controls are
@@ -255,7 +252,7 @@ void main() {
   });
 
   group('L2 -- the capture card during a video import', () {
-    testWidgets('positive control: with nothing running, all four controls are reachable and live', (tester) async {
+    testWidgets('with nothing running, capture/import remain offered and retired reports stay inert', (tester) async {
       final card = await _pumpCard(tester);
 
       expect(_onPressedOf(tester, _toggleButton()), isNotNull);
@@ -263,16 +260,17 @@ void main() {
       expect(await tabTo(tester, find.byKey(_toggleKey)), isTrue, reason: 'the capture toggle is offered');
       expect(await tabTo(tester, find.byKey(_pickKey)), isTrue, reason: '動画取り込み is offered');
 
-      // Pressing the two report links is observable without mounting anything: they ask for a
-      // dialog, and with no `DialogLayer` the request stops at the provider.
-      expect(await tabAndActivate(tester, _captureReportLink()), isTrue);
-      expect(card.dialogRequested, isTrue, reason: 'キャプチャエラー報告 opens on Enter when it is offered');
-
-      card.container.read(dialogBuilderProvider.notifier).dismiss();
-      expect(card.dialogRequested, isFalse);
-
-      expect(await tabAndActivate(tester, find.byKey(_importReportKey)), isTrue);
-      expect(card.dialogRequested, isTrue, reason: '取り込みエラー報告 opens on Enter when it is offered');
+      // The labels still occupy their existing layout, but neither pointer nor keyboard
+      // activation may request a report dialog. L1 above proves both keys can activate a control.
+      for (final report in [_captureReportLink(), find.byKey(_importReportKey)]) {
+        expect(report, findsOneWidget);
+        expect(tester.getSize(report).isEmpty, isFalse);
+        expect(await tabAndActivate(tester, report), isFalse);
+        expect(card.dialogRequested, isFalse, reason: 'retired report controls cannot request a dialog');
+        await tester.tap(report, warnIfMissed: false);
+        await tester.pump();
+        expect(card.dialogRequested, isFalse);
+      }
     });
 
     testWidgets('while an import runs, the three blocked controls take no key', (tester) async {

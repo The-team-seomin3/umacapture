@@ -50,3 +50,33 @@ source after #11's packaging fix, identify the extracted process by path/hash,
 exercise reporting/updater suppression with controlled settings, and observe
 outbound behavior before sharing or releasing a ZIP. Existing #11 ZIP evidence
 does not validate this change. Commit/push/PR publication is authorized for independent review; no merge, deployment, public release or installed-settings change is included.
+
+
+## Independent review correction
+
+The [advisory review](https://github.com/The-team-seomin3/umacapture/pull/18#issuecomment-6541650189)
+identified two outdated test contracts. They reproduced locally on migrated HEAD
+`0457825e4d0825bb1dd0ce36d2765f6d5bdee9c7`: 44 tests passed and two failed in
+`disabled_keyboard_activation_test.dart` and `storage_group_test.dart`.
+The commit identity migration under #20 preserved the reviewed file tree.
+
+The keyboard test now keeps normal capture/import callbacks non-null and Tab
+reachable, while requiring both visible retired reporting controls to reject
+Tab/Enter/Space and pointer activation without requesting a dialog. The primitive's
+enabled positive control remains. The source-extractor guard now exercises the
+remaining `join(dataRoot, settingsBoxDirName)` in `storage_box.dart`, retaining
+coverage of join syntax and cross-file constants, and rejects new Sentry-directory
+joins. Existing legacy Sentry-directory exclusion tests remain unchanged.
+
+The two corrected suites and the original 163 focused tests passed together:
+**209 tests passed**. Reproduce by adding these two files to the focused command:
+
+```text
+flutter test --no-pub test/disabled_keyboard_activation_test.dart test/storage_group_test.dart
+```
+
+Only tests and this validation record changed in the review correction; no product
+behavior or generated sources changed. New-HEAD full Flutter CI shards rerun on
+PR publication. Their authoritative status is the corresponding GitHub Actions
+run, not the historical CI result. Full Windows bundle/runtime/distribution limits
+above remain; no new binary was executed for this test-only correction.
