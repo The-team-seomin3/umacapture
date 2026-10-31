@@ -2,45 +2,58 @@
 
 ## Scope and contracts
 
-The target is a selected Korean Windows Hall-of-Fame character's **complete factors**
-saved locally as JSON. Manual opening/scrolling is allowed initially; automatic
-navigation, full Korean UI, skills/races/campaign recognition, new GUI, broad model
-retraining and cloud deployment are not assumed requirements. Follow the current
-scope/authorization in [#2](https://github.com/The-team-seomin3/umacapture/issues/2),
-[#3](https://github.com/The-team-seomin3/umacapture/issues/3),
-[#4](https://github.com/The-team-seomin3/umacapture/issues/4) and
-[#5](https://github.com/The-team-seomin3/umacapture/issues/5).
+The approved [MVP #5](https://github.com/The-team-seomin3/umacapture/issues/5) reads
+a completed Korean Windows Hall-of-Fame capture through an **independent offline
+postprocessor**. Ordinary three-tab capture, Japanese recognition and the original
+writer remain unchanged. Full Korean non-factor recognition is deferred; application
+UI localization and Windows packaging have separate scopes. See the dated
+[implementation status](../implementation-status.md) and current issue comments.
 
-- **Capture:** prove the actual Korean window class/title and readable unmodified
-  full-client pixels with the existing screenshot path first. An ANSI API observation,
-  guessed title, file existence or exit 0 is not a successful real-screen capture.
-  Avoid broad Unity-class matching that can select another app. Report missing/wrong
-  target, acquisition/pixel failure and output failure separately.
-- **Factors:** a screenshot or live `visibleSelfPrefix` is not full scroll coverage.
-  Verify beginning/end, missing/duplicate rows, character switches and boundaries
-  of `self`, `parent1`, `parent2`. Compare real `factor`/`factor_rank` predictions
-  with independently checked Korean observations; fake predictors do not prove
-  model accuracy. Do not assume every model is reusable or needs retraining.
-- **JSON:** preserve `Factor.id`, 1-based `star`, and `FactorSet`'s three groups.
-  The full native/Dart record requires more than factors; `JsonExportData` exports
-  whole `chara_detail` records plus `labels`. A FactorSet round-trip is not proof
-  of full-record/export compatibility. Identify the actual consumer and required
-  fields; never invent unknown non-factor values, IDs or a new top-level schema.
-  If factor-only data cannot satisfy that consumer, stop the affected decision
-  and present legitimate-data/accepted-existing-boundary/contract-change options
-  to the owner. Static contract inspection can proceed without Korean runtime data.
-- **MVP outcome:** only report success after complete, verified ID/star/group data
-  is safely written and the required consumer parses it with equivalent meaning.
-  Missing target, incomplete scroll, mixed-character input or failed save must not
-  replace a good result with an incomplete success.
+- **Capture intake:** [PoC A #2](https://github.com/The-team-seomin3/umacapture/issues/2)
+  accepted the owner's existing-release GUI capture and saved stitched image for the
+  supplied case. Live window class, fresh screenshot CLI and Japanese runtime
+  regression remain Not Tested; they are not prerequisites to reuse this evidence.
+  Do not require another capture to re-prove this accepted case or probe/control
+  the game under the current owner boundary. Reopen capture investigation only
+  for a material observed failure or new owner request.
+- **Factors:** preserve group, screen order and geometry for `self`, `parent1`,
+  `parent2`; check beginning/end, missing/duplicated acquisition and mixed captures.
+  Compare names/stars with source pixels and the pinned read-only Scout KR master.
+  `Factor.id` is the app module SID (**0 is valid**), not Scout's factor-group or
+  star-specific factor ID; require an evidenced namespace mapping and stars **1–3**.
+  Neither parser success, JP/KR agreement nor reference-ID mapping proves OCR
+  accuracy. Ambiguous symbols/names stay unresolved without independent verification
+  or explicit confirmation; no unverified automatic correction.
+- **Derived record:** preserve original `record.json`. Copy its complete
+  `CharaDetailRecord` structure into a separate `record-kr.json`, changing only
+  verified factor IDs/stars and the owner-adopted `metadata.region = "KR"`.
+  All other values, including `format_version` and `recognizer_version`, stay
+  unchanged and are **not certified Korean-client facts**. Do not fabricate missing
+  fields or invoke legacy `upgradeFormat` while copying; it changes non-factor
+  values. Keep JP/module, OCR/master and review provenance in private diagnostics,
+  without adding JSON fields. This accepted workflow uses a complete source record;
+  the earlier incompatibility finding still applies to factor-only input. It adds
+  no new schema.
+- **Output and comparison:** emit only after all captured factors are verified or
+  confirmed. Validate schema/allowed differences, semantic SID/star/group values,
+  readback and source non-mutation; failed/incomplete runs preserve prior valid
+  output. Pair JP/KR rows by group/order/coordinates, not predicted SID, and report
+  matched/corrected/unresolved/error against pixels/master. Repeating one sample
+  is not independent-capture evidence; KR-only routine use needs later owner acceptance.
+- **Consumer boundary:** the original app reads literal `record.json`; it does not
+  automatically discover `record-kr.json`. Its GUI `JsonExportData` wrapper uses
+  `chara_detail` plus `labels`, distinct from a record file. The owned-instance
+  Evaluator adapter remains separately scoped and Not Implemented in the linked
+  handoff. Existing-reader tests do not establish end-to-end Evaluator import.
 
 ## Shared pipeline safeguards
 
 Read the [existing architecture](../native-recognition-backend.md) before changes.
-At the inspected baseline, `SceneScrapingBox::ready` and the full recognizer still
-require non-factor inputs; a factor-only completion path must be established rather
-than assumed. Edit layout in [C++ builders](../../native/tool/builder), rebuild, then
-regenerate tracked scene JSON from the same tree; do not hand-edit generated layout.
+The existing full pipeline consumes non-factor inputs; factor-tab-only completion
+is outside the approved MVP. Native layout/model edits are not needed for the
+current postprocessor path. If separately authorized shared changes become necessary,
+edit layout in [C++ builders](../../native/tool/builder), rebuild, then regenerate
+tracked scene JSON from the same tree; do not hand-edit generated layout.
 
 Preserve Japanese DMM/Steam behavior. For shared-core changes also preserve existing
 web/CLI contracts, without requiring Korean web/mobile support. Live Windows/web

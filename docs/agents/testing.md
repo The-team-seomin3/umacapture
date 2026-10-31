@@ -9,13 +9,24 @@ Detailed suite mechanics are in the [native test manual](../../native/test/READM
 
 | Issue | Evidence needed for its claim |
 | --- | --- |
-| [#2 capture](https://github.com/The-team-seomin3/umacapture/issues/2) | Actual Korean window identity, fresh revision/environment/command, readable unmodified full-client factor image; distinguish target, pixels and save failures. Without live access provide the minimal owner-run procedure and mark runtime Not Tested |
-| [#3 factors](https://github.com/The-team-seomin3/umacapture/issues/3) | Real input inventory/reference observations, top-to-bottom scroll and self/parent boundaries, actual ID/star predictions; classify layout, stitch, name/ID, star, grouping and incomplete-input failures. Fake-predictor tests are separate evidence |
-| [#4 JSON](https://github.com/The-team-seomin3/umacapture/issues/4) | Producer/consumer and required-field mapping, non-destructive representative round-trip, actual consumer parse and equivalent factor semantics; judge FactorSet, full record and app export separately. Static inspection need not wait for #3 |
-| [#5 MVP](https://github.com/The-team-seomin3/umacapture/issues/5) | Real authorized Korean input through complete acquisition, correct factors/groups and safely saved JSON parsed by its required consumer; no target/incomplete scroll/character-switch/save failures reported as success; explicit Japanese DMM/Steam regression evidence or untested limits |
+| [#2 capture](https://github.com/The-team-seomin3/umacapture/issues/2) | Completed bounded acceptance of owner-operated existing-release GUI capture and saved stitched output. Raw screenshot CLI, live class and JP runtime regressions remain Not Tested; do not reimpose them as intake gates or request agent-direct game capture |
+| [#3 factors](https://github.com/The-team-seomin3/umacapture/issues/3) | Completed one-capture feasibility study: group/row/star/reference mapping evidence is distinct from automatic Korean name recognition. Reuse its result; unseen inputs and symbol correction remain unverified |
+| [#4 JSON](https://github.com/The-team-seomin3/umacapture/issues/4) | Completed synthetic full-record compatibility investigation with actual Dart/native reader checks. Preserve its limits; neither a FactorSet round-trip nor GUI-wrapper parsing is Evaluator import acceptance |
+| [#5 MVP](https://github.com/The-team-seomin3/umacapture/issues/5) | Saved inputs through offline OCR, complete explicit review, source-preserving full record-kr.json and paired comparison. Verify source/output/review bindings, allowed-path changes, SID 0, stars 1–3, safe failure and actual reader semantics. Track independent-capture/KR-only acceptance separately |
+
+The [status page](../implementation-status.md) distinguishes issue/PR execution
+evidence from merged source. Native checks below apply when their behavior is
+actually affected, not as a mandatory native rebuild for offline Python work.
+No Evaluator implementation or new confirmation GUI is implied.
 
 ## Find and run the relevant checks
 
+- For #5 use the [reviewed-output handoff](https://github.com/The-team-seomin3/umacapture/issues/5#issuecomment-6540427803)
+  and the tool README in its confirmed delivery checkout; that uncommitted tool is
+  absent from this baseline. Reuse existing tests/results proportionately; verify
+  new writer/validation changes with focused normal, ambiguous, stale-input and
+  failed-replacement cases. The original app's Japanese paths stay unchanged;
+  report unrun runtime regressions without claiming they passed.
 - For scene/scraper/stitch/model behavior, start in [native factor tests](../../native/test/chara_detail)
   and the [integration manifest](../../native/test/integration/cases.json). For serialization
   and export follow the [native schema](../../native/src/chara_detail/chara_detail_record.h),
@@ -54,4 +65,5 @@ results/skips, observed versus expected values and meaningful gaps. Use
 For temporary probes keep byte-exact copies, restore and checksum, then rebuild;
 never rewind other work with path checkout/restore/stash. Preserve private raw
 material and issue handoffs as described in [contracts](contracts.md#research-handoffs).
-These instructions do not claim the PoCs, Korean model quality or MVP already work.
+These procedures do not broaden the bounded results linked above into general
+Korean recognition, distribution readiness or downstream importer acceptance.
