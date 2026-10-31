@@ -19,7 +19,9 @@ including quarantine contents, recovery outcomes and capture retry instructions.
 
 The Korean theme uses Windows' built-in Malgun Gothic, including the waiting
 screen; Japanese keeps its existing theme. The toast close action uses Flutter's
-Material localization. Navigation labels resolve when read so they cannot retain
+Material localization. The missing-file hint in record reports uses the existing
+localized missing-file sentence. Product names, developer-only theme gallery text
+and unused dummy-page text are retained. Navigation labels resolve when read so they cannot retain
 a previous localization table.
 
 Recognition modules, game names/data supplied by modules, external news/Markdown,

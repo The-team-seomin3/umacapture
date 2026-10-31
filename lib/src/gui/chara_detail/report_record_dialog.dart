@@ -106,11 +106,11 @@ class _ReportRecordDialogState extends ConsumerState<ReportRecordDialog> {
                   return TextFormField(
                     key: ValueKey(files.map((e) => e.path).join("\n")),
                     initialValue: files.map((e) => e.path).join("\n"),
-                    decoration: const InputDecoration(
-                      hintText: "File not found.",
+                    decoration: InputDecoration(
+                      hintText: "toast.clipboard.file_not_found".tr(),
                       filled: false,
                       isCollapsed: true,
-                      contentPadding: EdgeInsets.all(8),
+                      contentPadding: const EdgeInsets.all(8),
                     ),
                     readOnly: true,
                     maxLines: null,
