@@ -129,6 +129,7 @@ class DistributionInfoBuilder implements Builder {
   /// codegen. `test/licence_disclosure_windows_test.dart` re-derives the same set from the same
   /// file and turns red when the committed artifact has gone stale, which is what covers that.
   static const String windowsRunnerCMakeLists = "windows/runner/CMakeLists.txt";
+  static const String windowsRuntimeInventory = "windows/runner/msvc_runtime_dlls.cmake";
 
   void _refreshLicenseText(String target, String source, String subject, String provisioner) {
     if (File(source).existsSync()) {
@@ -196,14 +197,19 @@ class DistributionInfoBuilder implements Builder {
 
     return jsonEncoder.convert({
       "disclosure_scope":
-          "Every file the Windows build redistributes (parsed from $windowsRunnerCMakeLists) is "
+          "Every third-party native DLL parsed from $windowsRunnerCMakeLists is "
           "claimed by an entry below. The components listed as 'statically linked into' a file "
           "are read from that file's own recorded build information; they are not derived from "
           "its code. A prebuilt binary's publisher may also ship notices for components its "
           "build information does not name: those are reproduced as published, and each says "
-          "so in its own line rather than claiming a link. Operating-system redistributables "
-          "copied out of ${bundled.systemDirectory} "
-          "are covered by their own redistribution terms and are not listed.",
+          "so in its own line rather than claiming a link. Compiler runtime redistributables "
+          "discovered by InstallRequiredSystemLibraries are listed separately in runtime_redistributables; "
+          "their own redistribution terms apply.",
+      "runtime_redistributables": {
+        "source": BundledWindowsDlls.msvcSource,
+        "inventory": windowsRuntimeInventory,
+        "shipped_files": bundled.msvc.toList()..sort(),
+      },
       "entries": [for (final disclosure in disclosures) disclosure.toJson()],
     });
   }
@@ -698,9 +704,19 @@ class _Disclosure {
 
 /// The DLLs a Windows build copies next to `umacapture.exe`, split by who owns them.
 class BundledWindowsDlls {
-  const BundledWindowsDlls({required this.thirdParty, required this.system, required this.systemDirectory});
+  const BundledWindowsDlls({
+    required this.thirdParty,
+    required this.system,
+    required this.systemDirectory,
+    required this.msvc,
+  });
 
-  /// File names this repository redistributes, each of which needs a disclosure.
+  static const msvcSource = "MSVC toolchain redistributables (InstallRequiredSystemLibraries)";
+
+  /// Configure-verified compiler redistributables, separate from OS-directory copies.
+  final Set<String> msvc;
+
+  /// Third-party native DLL names requiring entries, excluding the MSVC and OS sets.
   final Set<String> thirdParty;
 
   /// File names taken from [systemDirectory], covered by their own redistribution terms.
@@ -728,7 +744,26 @@ class BundledWindowsDlls {
 /// Only the Release/Profile branch of each `$<CONFIG:...>` generator expression is taken: the
 /// shipped installer is a `flutter build windows` (Release) output, and the Debug branch names
 /// the same components under a `d`-suffixed file name.
-BundledWindowsDlls parseBundledWindowsDlls(String cmakeLists) {
+/// MSVC module output comes from the checked-in inventory verified by Windows configure.
+BundledWindowsDlls parseBundledWindowsDlls(String cmakeLists, {String? msvcInventory}) {
+  final msvc = <String>{};
+  if (cmakeLists.contains("include(InstallRequiredSystemLibraries)")) {
+    if (!cmakeLists.contains('include("\${MSVC_RUNTIME_INVENTORY}")') ||
+        !cmakeLists.contains('foreach(RUNTIME_DLL IN LISTS CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS)') ||
+        !cmakeLists.contains('list(APPEND DEPENDENT_DLLS "\$<\${RELEASE_OR_PROFILE}:\${RUNTIME_DLL}>")')) {
+      throw FormatException("MSVC inventory is no longer wired to the resolved runtime copy loop");
+    }
+    final inventory = msvcInventory ?? File(DistributionInfoBuilder.windowsRuntimeInventory).readAsStringSync();
+    final match = RegExp(r'set\(UMACAPTURE_MSVC_RUNTIME_DLLS\s+([^)]*)\)').firstMatch(inventory);
+    if (match == null) throw FormatException("Missing MSVC runtime inventory");
+    for (final name in match.group(1)!.trim().split(RegExp(r'\s+'))) {
+      if (!RegExp(r'^[A-Za-z0-9_.-]+\.dll$').hasMatch(name)) {
+        throw FormatException("Invalid MSVC runtime DLL name: $name");
+      }
+      msvc.add(name);
+    }
+    if (msvc.isEmpty) throw FormatException("Empty MSVC runtime inventory");
+  }
   final variables = <String, String>{};
   final assignment = RegExp(r'^[ \t]*set\([ \t]*([A-Za-z_][A-Za-z_0-9]*)[ \t]+"([^"]*)"[ \t]*\)', multiLine: true);
   for (final match in assignment.allMatches(cmakeLists)) {
@@ -774,7 +809,7 @@ BundledWindowsDlls parseBundledWindowsDlls(String cmakeLists) {
       (systemDirectory.isNotEmpty && resolved.startsWith(systemDirectory) ? system : thirdParty).add(name);
     }
   }
-  return BundledWindowsDlls(thirdParty: thirdParty, system: system, systemDirectory: systemDirectory);
+  return BundledWindowsDlls(thirdParty: thirdParty, system: system, systemDirectory: systemDirectory, msvc: msvc);
 }
 
 /// The disclosure of a single license text, and every claim that points at it.
