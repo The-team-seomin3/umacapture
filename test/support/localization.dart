@@ -34,7 +34,8 @@ const appTestLocale = Locale('ja');
 /// Loads `assets/translations/ja.json` into `easy_localization`, so `.tr()` resolves real strings and
 /// interpolates `namedArgs`. Call once per test file (e.g. from `setUpAll`); repeated calls are harmless.
 void loadAppTranslations({Locale locale = appTestLocale}) {
-  final json = jsonDecode(File('assets/translations/${locale.languageCode}.json').readAsStringSync()) as Map<String, dynamic>;
+  final json =
+      jsonDecode(File('assets/translations/${locale.languageCode}.json').readAsStringSync()) as Map<String, dynamic>;
   Localization.load(locale, translations: Translations(json));
 }
 
