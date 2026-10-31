@@ -16,6 +16,30 @@ packages before codegen, then `dart run build_runner build --force-jit` (`.bat` 
 Windows). Keep generated EOL handling in `.gitattributes`; no whole-tree formatting
 or normalization. Existing Git hooks remain applicable; do not bypass failed checks.
 
+## Existing CI action allowlist
+
+The existing workflows use GitHub-authored actions plus these external references:
+
+```text
+ilammy/msvc-dev-cmd@v1
+astral-sh/setup-uv@v10.3.3
+subosito/flutter-action@v2
+```
+
+For a selected-actions repository policy, allow GitHub-authored actions and these
+exact references. `setup-uv` has no `v10` major shorthand at this update; the
+published `v10.3.3` tag is used in both CI and the provisioning composite actions.
+The v10 action uses Node 24 on the existing GitHub-hosted `windows-2022` runners.
+Provisioning steps retain `enable-cache: false`; the unconditional native setup
+keeps upstream defaults (v9 changed default cache pruning to false, and v10 changes
+automatic caching for sensitive events). Current triggers are `pull_request` and
+`push`; runtime behavior still needs an actual workflow run.
+
+A listed workflow state of `active` does not prove repository Actions activation
+or a successful run. Repository/organization policy and fork activation are
+separate from source configuration. Keep token and branch-check permissions
+unchanged; do not weaken them to obtain a passing check.
+
 ## Native CLI
 
 Build every executable used from the current tree this session. Locate Visual Studio
