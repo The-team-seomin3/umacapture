@@ -63,10 +63,25 @@ class Toaster {
     ToastType.error => semantic.danger,
   };
 
+  double _contrast(Color foreground, Color background) {
+    final a = foreground.computeLuminance();
+    final b = background.computeLuminance();
+    return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+  }
+
+  Color _foregroundColor(ThemeData theme, Color background) {
+    // Semantic accents become lighter in dark mode. Choose among existing theme
+    // roles rather than assuming their filled backgrounds always need white text.
+    final candidates = [theme.semantic.onAccent, theme.colorScheme.onSurface, theme.colorScheme.surface];
+    return candidates.reduce((a, b) => _contrast(a, background) >= _contrast(b, background) ? a : b);
+  }
+
   void showToast(BuildContext context, ToastData data) {
     final messenger = ScaffoldMessenger.of(context);
-    final semantic = Theme.of(context).semantic;
-    final onAccent = semantic.onAccent;
+    final theme = Theme.of(context);
+    final semantic = theme.semantic;
+    final background = _backgroundColor(semantic, data.type);
+    final onAccent = _foregroundColor(theme, background);
     final parentSize = MediaQuery.of(context).size;
     final barWidth = Math.min(parentSize.width - 20.0, narrowWidth);
     final isNarrow = barWidth < narrowWidth;
@@ -81,7 +96,7 @@ class Toaster {
         width: barWidth,
         padding: const EdgeInsets.symmetric(vertical: 10),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
-        backgroundColor: _backgroundColor(semantic, data.type),
+        backgroundColor: background,
         behavior: SnackBarBehavior.floating,
         dismissDirection: isNarrow ? DismissDirection.horizontal : DismissDirection.down,
         duration: duration,
