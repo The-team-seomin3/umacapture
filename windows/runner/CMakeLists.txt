@@ -143,9 +143,34 @@ set(
         $<$<CONFIG:Debug>:${SYSTEM_DLL_DIR}/ucrtbased.dll>
 )
 
+set(RESOLVED_MSVC_RUNTIME_DLLS)
 foreach(RUNTIME_DLL IN LISTS CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS)
     list(APPEND DEPENDENT_DLLS "$<${RELEASE_OR_PROFILE}:${RUNTIME_DLL}>")
+    get_filename_component(RUNTIME_DLL_NAME "${RUNTIME_DLL}" NAME)
+    list(APPEND RESOLVED_MSVC_RUNTIME_DLLS "${RUNTIME_DLL_NAME}")
 endforeach()
+list(REMOVE_DUPLICATES RESOLVED_MSVC_RUNTIME_DLLS)
+list(SORT RESOLVED_MSVC_RUNTIME_DLLS)
+# Portable disclosure generation consumes this configure-verified name inventory.
+# Refresh deliberately when the selected toolchain's redistributable set changes.
+option(UMACAPTURE_REFRESH_MSVC_RUNTIME_INVENTORY "Refresh checked-in MSVC DLL inventory" OFF)
+set(MSVC_RUNTIME_INVENTORY "${CMAKE_CURRENT_LIST_DIR}/msvc_runtime_dlls.cmake")
+if(UMACAPTURE_REFRESH_MSVC_RUNTIME_INVENTORY)
+    if(NOT RESOLVED_MSVC_RUNTIME_DLLS)
+        message(FATAL_ERROR "No MSVC redistributables discovered")
+    endif()
+    string(REPLACE ";" "\n    " INVENTORY_NAMES "${RESOLVED_MSVC_RUNTIME_DLLS}")
+    file(WRITE "${MSVC_RUNTIME_INVENTORY}"
+        "# Generated from InstallRequiredSystemLibraries; validated by runner/CMakeLists.txt.\n"
+        "set(UMACAPTURE_MSVC_RUNTIME_DLLS\n    ${INVENTORY_NAMES}\n)\n")
+    # Refresh once; subsequent configurations must verify the reviewed inventory.
+    set(UMACAPTURE_REFRESH_MSVC_RUNTIME_INVENTORY OFF CACHE BOOL "Refresh checked-in MSVC DLL inventory" FORCE)
+endif()
+include("${MSVC_RUNTIME_INVENTORY}")
+if(NOT "${RESOLVED_MSVC_RUNTIME_DLLS}" STREQUAL "${UMACAPTURE_MSVC_RUNTIME_DLLS}")
+    message(FATAL_ERROR "MSVC runtime inventory differs from the actual copy set. Configure with "
+        "-DUMACAPTURE_REFRESH_MSVC_RUNTIME_INVENTORY=ON, regenerate disclosures and review the diff.")
+endif()
 
 add_custom_command(
         TARGET ${BINARY_NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E

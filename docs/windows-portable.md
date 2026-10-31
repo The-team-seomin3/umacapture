@@ -82,3 +82,26 @@ universal clean-machine compatibility or complete DPI/accessibility coverage.
 No installer, updater redesign, CI pipeline or public release is required here.
 
 Latest local delivery: [#11 + #15 integration validation](validation/windows-isolation-integration-2026-10-31.md).
+
+## Runtime inventory and disclosure
+
+Release/Profile runtime names are generated from the actual
+`InstallRequiredSystemLibraries` result into
+`windows/runner/msvc_runtime_dlls.cmake`. Every Windows configure compares that
+inventory with the resolved copy set and fails on drift. The distribution builder
+classifies this set as MSVC toolchain redistributables, separately from System32
+and native third-party components, in `assets/additional_license_info.json`.
+
+When an intentionally selected toolchain changes the set, use the same CMake
+executable used by Flutter (with process JAVA_HOME still set), after provisioning
+the worktree and initializing its Flutter build directory:
+
+```text
+cmake -S windows -B build/windows/x64 -DUMACAPTURE_REFRESH_MSVC_RUNTIME_INVENTORY=ON
+.fvm/flutter_sdk/bin/dart.bat run build_runner build --force-jit
+.fvm/flutter_sdk/bin/flutter.bat test --no-pub test/licence_disclosure_windows_test.dart
+```
+
+The refresh option resets itself to OFF after generation; subsequent configurations
+verify the checked-in receipt. Review and commit both the inventory and regenerated
+disclosure. Do not bypass a mismatch by deleting the positive licence assertions.

@@ -48,18 +48,46 @@ void main() {
       expect(bundled.thirdParty, hasLength(greaterThanOrEqualTo(3)));
     });
 
-    test("separates the operating-system redistributables from ours", () {
-      // The System32 copies are excluded from the disclosure by *where they come from*, not by
-      // name. If that classification silently collapsed, every DLL would land in one bucket --
-      // either demanding notices for msvcp140.dll or waving ours through.
-      expect(bundled.systemDirectory, isNotEmpty);
-      expect(bundled.system, isNotEmpty);
-      expect(bundled.system.intersection(bundled.thirdParty), isEmpty);
-      expect(bundled.system.any((e) => e.contains("msvcp140")), isTrue);
+    test("separates the discovered MSVC redistributables from ours", () {
+      expect(bundled.msvc, isNotEmpty);
+      expect(bundled.msvc.intersection(bundled.thirdParty), isEmpty);
+      expect(bundled.msvc.intersection(bundled.system), isEmpty);
+      expect(bundled.msvc.any((e) => e.contains("msvcp140")), isTrue);
+      expect(bundled.msvc.any((e) => e.contains("vcruntime140")), isTrue);
+      expect(bundled.system, isEmpty, reason: "Release/Profile no longer copy CRTs from System32");
+    });
+
+    test("rejects a runtime receipt disconnected from the real copy loop", () {
+      final cmake = File(DistributionInfoBuilder.windowsRunnerCMakeLists).readAsStringSync();
+      expect(
+        () => parseBundledWindowsDlls(
+          cmake.replaceFirst(
+            'foreach(RUNTIME_DLL IN LISTS CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS)',
+            'foreach(RUNTIME_DLL IN LISTS UNRELATED_DLLS)',
+          ),
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => parseBundledWindowsDlls(cmake, msvcInventory: 'set(UMACAPTURE_MSVC_RUNTIME_DLLS )'),
+        throwsFormatException,
+      );
+      expect(
+        () => parseBundledWindowsDlls(cmake, msvcInventory: 'set(UMACAPTURE_MSVC_RUNTIME_DLLS ../unrelated.dll)'),
+        throwsFormatException,
+      );
     });
   });
 
   group("the committed disclosure", () {
+    test("records the actual toolchain runtime names and source separately", () {
+      final index = jsonDecode(File("assets/additional_license_info.json").readAsStringSync()) as Map<String, dynamic>;
+      final runtime = index["runtime_redistributables"] as Map<String, dynamic>;
+      expect(runtime["source"], BundledWindowsDlls.msvcSource);
+      expect(runtime["inventory"], DistributionInfoBuilder.windowsRuntimeInventory);
+      expect(runtime["shipped_files"], unorderedEquals(bundled.msvc));
+      expect(index["disclosure_scope"], isNot(contains("copied out of C:/Windows/System32")));
+    });
     test("claims every DLL the Windows build redistributes", () {
       final claimed = {for (final entry in nativeEntries) ...(entry["shipped_files"] as List).cast<String>()};
       expect(

@@ -117,8 +117,9 @@ The owner subsequently requested a PR. Delivery branch
 `codex/issue-11-windows-delivery` inherits #15 PR #18 commit `681597337bb388ca4dfd815b8c55636aaed29c83`;
 its own delivery commit adds the retained CMake fix and #11 documents only.
 The original builder retains the ZIPs and raw local logs. Documentation publication
-does not upload or release those binaries. No product source changed after the
-final validated bundle; the CMake input hash above matches the delivery worktree.
+does not upload or release those binaries. At initial publication, no product source had changed after the
+validated bundle. The CMake hash above identifies that historical build input;
+the later disclosure follow-up below has separate source validation.
 
 Run in a provisioned dedicated Windows worktree, using `.fvmrc`'s SDK and the
 shared JDK documented in the build manual:
@@ -141,3 +142,45 @@ flutter windows took 56,409ms; exiting with code 0
 
 The manual provides the extraction/provenance/fixture procedure. The TCP observer
 was a local validation aid; it is not a product dependency or background monitor.
+## PR #19 review follow-up — source validation
+
+Review: https://github.com/The-team-seomin3/umacapture/pull/19#issuecomment-6542551780
+Reviewed HEAD: `39590f2778a040f3da42807775885e61caa43b14`.
+
+The already-published #18 test correction `2669a7c8ead21b3eb2b6131a0518a120d2b20f2f`
+and its merged develop state were integrated normally. Normal capture/import
+keyboard behavior and the surviving scratch-root source-extractor control remain
+covered; retired reporting controls remain locked. No reporting/updater path was
+restored and no reviewer policy/acceptance assertion was removed to get a pass.
+
+The runtime scan now consumes `windows/runner/msvc_runtime_dlls.cmake`, generated
+from the selected compiler's actual `InstallRequiredSystemLibraries` result. It
+classifies the compiler set separately from System32 and other native libraries.
+The regenerated `assets/additional_license_info.json` records source, inventory
+path and eight actual shipped runtime names; the outdated System32 claim is gone.
+The positive assertions still require MSVC runtime names and disjoint ownership
+sets, and the committed disclosure must match the parsed inventory exactly.
+
+Validation in the dedicated PR worktree, using the existing pinned tools:
+
+- CMake refresh generated eight DLL names. The refresh flag reset to OFF, and a
+  subsequent ordinary configure passed. No host software or security setting was
+  changed.
+- Negative drift check: temporarily removing `vcruntime140_1.dll` from the receipt
+  made the actual Windows configure fail with `MSVC runtime inventory differs from
+  the actual copy set`. The file was restored byte-for-byte and configure passed.
+- The generated MSBuild POST_BUILD commands for both Release and Profile independently
+  enumerated the same eight names as the regenerated disclosure. This checks the
+  resolved copy commands; it is not a claim of a new Profile executable run.
+- Required `dart run build_runner build --force-jit`: PASS, 44s. Environment-only
+  web inventory output and license-text EOL drift were not retained.
+- `flutter test --no-pub test/disabled_keyboard_activation_test.dart test/storage_group_test.dart test/licence_disclosure_windows_test.dart`: PASS, `00:02 +60: All tests passed!`.
+- `flutter analyze --no-pub --no-fatal-infos`: exit 0; eight existing deprecated-member
+  infos in unchanged tests, no new errors/warnings. Explicit-path 120-column format
+  and `git diff --check`: PASS.
+
+The current follow-up changes build-time inventory checks and the generated licence
+asset. It does not rebuild or replace any proven local ZIP or repository `.release`
+installation. The earlier native execution/traffic evidence remains historical
+for its recorded binary hashes; no new native runtime evidence is claimed here.
+CI must be evaluated on the new published HEAD rather than the reviewed old HEAD.
