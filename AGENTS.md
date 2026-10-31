@@ -1,13 +1,21 @@
-# Korean factor PoC and MVP guidance
+# Korean Windows factor workflow guidance
 
-This entry supports the Korean Kakao Games Windows Hall-of-Fame factor workflow:
-raw capture [#2](https://github.com/The-team-seomin3/umacapture/issues/2), factor
-coverage/recognition [#3](https://github.com/The-team-seomin3/umacapture/issues/3),
-existing JSON compatibility [#4](https://github.com/The-team-seomin3/umacapture/issues/4),
-then the staged factor-to-JSON [MVP #5](https://github.com/The-team-seomin3/umacapture/issues/5).
-Read the relevant issue and latest comments first; task publication and research
+The approved workflow keeps ordinary three-tab capture, Japanese recognition and
+the original record writer unchanged, then uses an independent offline Korean
+factor postprocessor for [MVP #5](https://github.com/The-team-seomin3/umacapture/issues/5).
+Capture [#2](https://github.com/The-team-seomin3/umacapture/issues/2), factor feasibility
+[#3](https://github.com/The-team-seomin3/umacapture/issues/3) and record compatibility
+[#4](https://github.com/The-team-seomin3/umacapture/issues/4) are completed bounded
+investigations, not requirements to repeat them or implement factor-tab-only capture.
+See [implementation status](docs/implementation-status.md) for merged versus local
+delivery and remaining acceptance.
+
+Read the relevant issue and latest owner corrections first; an old issue synopsis
+may precede its implementation/result comments. Task publication and research
 assignments do not themselves authorize product implementation. Continue work
 already authorized by the owner; stop only affected unapproved scope or decisions.
+Agent-direct game capture/control and anti-cheat probing are outside the current
+owner operating boundary; reuse the accepted owner-operated capture evidence.
 
 ## Working rules
 
@@ -41,8 +49,9 @@ already authorized by the owner; stop only affected unapproved scope or decision
 
 Use the issue/file map below as the **initial content scope for the active task**.
 Read its needed reference sections, symbols, callers and matching tests, not every
-linked document or every file in a linked directory. For #5 start with its current
-stage; the map is not a requirement to repeat all three PoCs.
+linked document or every file in a linked directory. For #5 start with the current
+postprocessor stage and its issue handoff; native entries below describe the existing
+capture/record contracts, not a requirement to reopen the PoCs or change native OCR.
 
 - Search filenames/symbols in named task files/roots first with
   `rg --files <root> -g '<pattern>'` or `rg -n '<symbol>' <file>`, then read relevant
@@ -71,6 +80,7 @@ stage; the map is not a requirement to repeat all three PoCs.
 
 | Need | Read next |
 | --- | --- |
+| Current delivery, acceptance remainder and separate UI/package/isolation work | [Implementation status](docs/implementation-status.md) |
 | Scope, factor/JSON boundaries, preserving shared paths | [Contracts](docs/agents/contracts.md#scope-and-contracts) |
 | Consume/publish PoC research or prepare worktree cleanup | [Research handoffs](docs/agents/contracts.md#research-handoffs); derive the [local issue index and cleanup handoff](docs/agents/contracts.md#local-storage-and-worktree-handoff) before searching raw evidence |
 | Build and run screenshot/video/recognition tooling | [Setup and CLI](docs/agents/operations.md#setup-and-build) |
@@ -85,7 +95,7 @@ stage; the map is not a requirement to repeat all three PoCs.
 | #3: scroll coverage, completion and factor recognition | [native_api.cpp](native/src/core/native_api.cpp); [scene scraper](native/src/chara_detail/chara_detail_scene_scraper.cpp) (`SceneScrapingBox::ready`); [stitcher](native/src/chara_detail/chara_detail_scene_stitcher.cpp); [recognizer](native/src/chara_detail/chara_detail_recognizer.cpp) (`FactorRowReader`, `visibleSelfPrefix`, `FactorTabRecognizer`); [builders](native/tool/builder) |
 | #3: actual ONNX model wiring | [model.h](native/src/cv/model.h), [recognizer model factory](native/src/chara_detail/chara_detail_recognizer_models.cpp), recognizer builder/config; model inputs `factor` and `factor_rank` |
 | #4: existing producer and consumer JSON | [native record](native/src/chara_detail/chara_detail_record.h), [Dart record](lib/src/chara_detail/chara_detail_record.dart), [exporter](lib/src/chara_detail/exporter.dart) (`JsonExportData`, `JsonExporter`) |
-| #5: integrate only evidence-backed stages | Use only the current stage's row above and [issue #5](https://github.com/The-team-seomin3/umacapture/issues/5); static #4 investigation need not wait for screenshots |
+| #5: independent offline postprocessing | Start with [issue #5's reviewed-output handoff](https://github.com/The-team-seomin3/umacapture/issues/5#issuecomment-6540427803) and [record contracts](docs/agents/contracts.md#scope-and-contracts); confirm delivery location before reading tools not yet in this baseline. Reuse #2–#4 results |
 | Relevant tests and runtime limits | [native factor tests](native/test/chara_detail), [integration manifest](native/test/integration/cases.json), [native test manual](native/test/README.md), matching [Dart tests](test) |
 
 These instructions cover this PoC/MVP work, not a general maintenance workflow.

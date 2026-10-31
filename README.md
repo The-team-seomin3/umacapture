@@ -12,7 +12,16 @@
 umacapture is a software that extracts in-game information from the game [ウマ娘](https://umamusume.jp/) using only image recognition.
 This software is designed not to interfere with the game client or server and is not intended to violate the terms of use.
 
-NOTE: Currently, only supports the game client for the Japanese market.
+This fork starts the Windows application UI in Korean, with Japanese resources retained.
+The built-in game recognizer remains Japanese. Korean factor extraction uses a separate
+offline postprocessor after the ordinary three-tab capture; its current implementation
+is local work, not part of this source baseline or a published fork release.
+Automatic Korean factor OCR currently has low recognition accuracy. AI models are
+being used to supplement recognition while this workflow is being refined.
+Current progress: **14 captures**, **1,234 factor rows**, and **255 unresolved OCR cases**.
+Factors still require verification or explicit confirmation before final export.
+See [implementation status and remaining acceptance](docs/implementation-status.md)
+for delivery and validation details.
 
 
 ## System requirements
@@ -32,19 +41,28 @@ falling back to a slower path.
 
 ## Docs
 
-Application UI: [Korean localization and validation](docs/korean-ui-localization.md).
-Windows desktop starts in Korean; game-client recognition support is separate.
+| Need | Start here |
+| --- | --- |
+| Current delivery, evidence and remaining work | [Implementation status](docs/implementation-status.md) |
+| Korean application UI and its validation | [Korean localization](docs/korean-ui-localization.md) |
+| Approved factor workflow, contracts and task entrypoints | [AGENTS.md](AGENTS.md) |
+| Native capture/recognition architecture | [Native backend overview](docs/native-recognition-backend.md) |
+| Reporting/update isolation and permitted module traffic | [Fork network policy](docs/fork-network-policy.md) |
 
-PoC/MVP development guidance: [AGENTS.md](AGENTS.md), with links to contracts, tooling, verification and native architecture.
+The status page links the local OCR result and open Windows delivery PR;
+the OCR tool and packaging manuals are not yet included in this baseline.
 
 
-## Community
+## Support and upstream
 
-Fork issues: https://github.com/The-team-seomin3/umacapture/issues
+Fork issues: [The-team-seomin3/umacapture](https://github.com/The-team-seomin3/umacapture/issues).
 
-This fork derives from [umasagashi/umacapture](https://github.com/umasagashi/umacapture). Upstream attribution and MIT notices are retained.
+This fork derives from [umasagashi/umacapture](https://github.com/umasagashi/umacapture).
+Upstream attribution and MIT notices are retained.
 
-Reporting and application updates are disabled; their existing controls remain crossed out and locked. See [fork network policy](docs/fork-network-policy.md) for permitted module downloads and validation limits.
+Reporting and application updates are disabled; their existing controls remain
+crossed out and locked. See [fork network policy](docs/fork-network-policy.md)
+for permitted module downloads and validation limits.
 
 ## Licence
 
