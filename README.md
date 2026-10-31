@@ -18,8 +18,11 @@ offline postprocessor after the ordinary three-tab capture; its current implemen
 is local work, not part of this source baseline or a published fork release.
 Automatic Korean factor OCR currently has low recognition accuracy. AI models are
 being used to supplement recognition while this workflow is being refined.
-Current progress: **14 captures**, **1,234 factor rows**, and **255 unresolved OCR cases**.
-Factors still require verification or explicit confirmation before final export.
+The automatic OCR diagnostic pass covered **14 captures** and **1,234 factor rows**,
+with **255 unresolved OCR cases**. Subsequent source-pixel review resolved the saved
+corpus, and all 14 KR records were exported and reader-verified; see the
+[verification and delivery status](docs/implementation-status.md#current-workflow).
+New inputs still require verification or explicit confirmation before final export.
 See [implementation status and remaining acceptance](docs/implementation-status.md)
 for delivery and validation details.
 
