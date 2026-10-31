@@ -401,9 +401,7 @@ void run() {
       //   if (kDebugMode) ProviderLogger(),
       // ],
       // EasyLocalization must be placed at the root. Otherwise, hot reload will not work for some reason.
-      child: AppLocalization(
-        child: ApplicationWidget(),
-      ),
+      child: AppLocalization(child: ApplicationWidget()),
     ),
   );
 }

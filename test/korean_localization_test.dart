@@ -55,14 +55,18 @@ void main() {
     await EasyLocalization.ensureInitialized();
     await tester.binding.setSurfaceSize(const Size(360, 640));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(AppLocalization(
-      child: Builder(builder: (context) => MaterialApp(
-        locale: context.locale,
-        supportedLocales: context.supportedLocales,
-        localizationsDelegates: context.localizationDelegates,
-        home: const AppInstanceWaitingScreen(),
-      )),
-    ));
+    await tester.pumpWidget(
+      AppLocalization(
+        child: Builder(
+          builder: (context) => MaterialApp(
+            locale: context.locale,
+            supportedLocales: context.supportedLocales,
+            localizationsDelegates: context.localizationDelegates,
+            home: const AppInstanceWaitingScreen(),
+          ),
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
     final ko = localeJson('assets/translations/ko.json');
     expect(find.text((ko['app'] as Map)['single_tab']['waiting'] as String), findsOneWidget);
