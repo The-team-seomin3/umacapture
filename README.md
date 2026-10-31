@@ -14,8 +14,9 @@ This software is designed not to interfere with the game client or server and is
 
 This fork starts the Windows application UI in Korean, with Japanese resources retained.
 The built-in game recognizer remains Japanese. Korean factor extraction uses a separate
-offline postprocessor after the ordinary three-tab capture; its current implementation
-is local work, not part of this source baseline or a published fork release.
+offline postprocessor after the ordinary three-tab capture. The optional
+[Korean factor OCR and reviewed JSON export](tool/kr_factor_ocr/README.md) are included
+in this source change; they are not a published fork release.
 Automatic Korean factor OCR currently has low recognition accuracy. AI models are
 being used to supplement recognition while this workflow is being refined.
 The automatic OCR diagnostic pass covered **14 captures** and **1,234 factor rows**,
@@ -53,8 +54,8 @@ falling back to a slower path.
 | Native capture/recognition architecture | [Native backend overview](docs/native-recognition-backend.md) |
 | Reporting/update isolation and permitted module traffic | [Fork network policy](docs/fork-network-policy.md) |
 
-The status page links the local OCR result and Windows delivery work.
-The OCR tool remains outside this source baseline; packaging instructions and
+The status page links the OCR implementation and validation results and Windows delivery work.
+The optional OCR tool is included in this source change; packaging instructions and
 validation records are available through the delivery links above.
 
 
