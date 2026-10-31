@@ -48,10 +48,19 @@ management, settings, notifications, delete confirmations and error dialogs. Che
 Hangul glyphs, wrapping, truncation and button reachability. A widget test does not
 prove Windows font rendering or complete page layout.
 
-Local status on 2026-10-31: the pinned SDK and Flutter/FVM commands were unavailable,
-so local Flutter tests, formatter, analyzer and Windows visual checks were Not Tested.
+Local validation on 2026-10-31 used Flutter 3.44.4 / Dart 3.12.2, installed
+from the official Windows archive after SHA-256 verification. The user-level SDK
+can be shared across dedicated worktrees; connect each worktree's ignored
+`.fvm/flutter_sdk` to that same SDK version without upgrading it in place.
+
+The three targeted test files above passed all 18 tests. Changed Dart files pass
+120-column formatting. Full `flutter analyze --no-pub --no-fatal-infos` exits 0,
+with eight pre-existing deprecated-member informational notices in other tests.
+The startup widget test waits for real asset I/O and uses Flutter's Windows platform
+variant, covering saved Japanese preferences before rendering Korean UI.
+
 Resource checks passed for all 1,295 leaves (9 intentional blanks). The installed
 Malgun Gothic cmap covers all 477 distinct Hangul syllables used in the translation;
-this proves glyph availability, not rendered layout. Use the PR checks for current CI results;
-no Windows binary or ZIP is delivered by this issue. Keep the issue open until the
-remaining UI validation is recorded.
+this proves glyph availability, not rendered layout. Windows full-page visual
+checks remain Not Tested; keep the issue open until that validation is recorded.
+No Windows binary or ZIP is delivered by this issue. Use the PR for current CI status.

@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 // ignore: depend_on_referenced_packages
@@ -48,39 +47,51 @@ void main() {
     expect(AppLocalization.initialLocaleFor(TargetPlatform.android, isWeb: false), const Locale('ja'));
   });
 
-  testWidgets('Windows overrides saved Japanese before rendering waiting screen and narrow navigation', (tester) async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-    addTearDown(() => debugDefaultTargetPlatformOverride = null);
-    SharedPreferences.setMockInitialValues({'locale': 'ja'});
-    await EasyLocalization.ensureInitialized();
-    await tester.binding.setSurfaceSize(const Size(360, 640));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(
-      AppLocalization(
-        child: Builder(
-          builder: (context) => MaterialApp(
-            locale: context.locale,
-            supportedLocales: context.supportedLocales,
-            localizationsDelegates: context.localizationDelegates,
-            home: const AppInstanceWaitingScreen(),
+  testWidgets(
+    'Windows overrides saved Japanese before rendering waiting screen and narrow navigation',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({'locale': 'ja'});
+      await EasyLocalization.ensureInitialized();
+      await tester.binding.setSurfaceSize(const Size(360, 640));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        AppLocalization(
+          child: Builder(
+            builder: (context) => MaterialApp(
+              locale: context.locale,
+              supportedLocales: context.supportedLocales,
+              localizationsDelegates: context.localizationDelegates,
+              home: const AppInstanceWaitingScreen(),
+            ),
           ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    final ko = localeJson('assets/translations/ko.json');
-    expect(find.text((ko['app'] as Map)['single_tab']['waiting'] as String), findsOneWidget);
-    expect(tester.takeException(), isNull);
-    expect(Pages.labels.first.label, '대시보드');
-    await tester.pumpWidget(MaterialApp(home: Scaffold(body: AppNavigationDrawer(onSelected: (_) {}))));
-    await tester.pumpAndSettle();
-    for (final label in Pages.labels) {
-      expect(find.text(label.label), findsOneWidget);
-    }
-    expect(tester.takeException(), isNull);
-    await tester.pumpWidget(const SizedBox.shrink());
-    loadAppTranslations();
-  });
+      );
+      // Asset bundle reads complete on the real event loop; pumpAndSettle alone
+      // may return while the startup gate has no frame scheduled yet.
+      for (var attempt = 0; attempt < 100 && find.byType(AppInstanceWaitingScreen).evaluate().isEmpty; attempt++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+        await tester.pump();
+      }
+      await tester.pumpAndSettle();
+      final ko = localeJson('assets/translations/ko.json');
+      expect(find.text((ko['app'] as Map)['single_tab']['waiting'] as String), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      expect(Pages.labels.first.label, '대시보드');
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: AppNavigationDrawer(onSelected: (_) {})),
+        ),
+      );
+      await tester.pumpAndSettle();
+      for (final label in Pages.labels) {
+        expect(find.text(label.label), findsOneWidget);
+      }
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      loadAppTranslations();
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
 
   test('both shipped locale resources remain nonempty UTF-8 JSON', () {
     for (final path in appLocaleFiles()) {
