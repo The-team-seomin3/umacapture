@@ -1,5 +1,5 @@
 # /// script
-# requires-python = ">=3.11"
+# requires-python = ">=3.12"
 # dependencies = ["rapidocr==3.10.0", "onnxruntime==1.31.1", "opencv-python-headless==4.13.0.92", "numpy==2.5.4"]
 # ///
 """Independent KR factor candidate diagnostics. Never emits a completed game record."""

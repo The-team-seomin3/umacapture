@@ -1,5 +1,5 @@
 # /// script
-# requires-python = ">=3.11"
+# requires-python = ">=3.12"
 # dependencies = ["opencv-python-headless==4.13.0.92", "numpy==2.5.4"]
 # ///
 """Review saved KR factor evidence and export a source-preserving full record."""
@@ -25,6 +25,7 @@ REQUIRED_FIELDS = {
     "family": dict, "fans": int, "scenario": dict, "trained_date": str, "races": list,
 }
 COVERAGE = ("complete_capture", "group_boundaries", "no_missing_or_duplicate_rows")
+RECORD_TYPES = ("Standard", "InheritanceOnly", "FriendStandard", "FriendInheritance")
 
 
 def encoded(value):
@@ -56,14 +57,69 @@ def text(value):
     return value
 
 
+def source_fields(value, required, path, optional=None):
+    if type(value) is not dict:
+        raise ValueError(f"Expected a source object: {path}")
+    for key, kind in required.items():
+        if key not in value or type(value[key]) is not kind:
+            raise ValueError(f"Missing or invalid source field: {path}.{key}")
+    for key, kind in (optional or {}).items():
+        if key in value and value[key] is not None and type(value[key]) is not kind:
+            raise ValueError(f"Invalid optional source field: {path}.{key}")
+
+
+def source_character(value, path):
+    source_fields(value, dict.fromkeys(("icon", "character", "card", "rank"), int), path,
+                  {"record_type": str})
+    if value.get("record_type") is not None and value["record_type"] not in RECORD_TYPES:
+        raise ValueError(f"Unsupported source record type: {path}.record_type")
+
+
 def full_record(record):
-    for key, kind in REQUIRED_FIELDS.items():
-        if key not in record or type(record[key]) is not kind:
-            raise ValueError("Expected a complete existing CharaDetailRecord")
+    # Required/optional shape follows native/src/chara_detail/chara_detail_record.h
+    # and lib/src/chara_detail/chara_detail_record.dart; no values are defaulted or converted.
+    source_fields(record, REQUIRED_FIELDS, "record")
+    metadata = record["metadata"]
+    source_fields(metadata, {**dict.fromkeys(("format_version", "region", "trainer_id", "captured_date",
+                                             "recognizer_version", "stage"), str),
+                             "record_id": dict, "strategy": int}, "metadata",
+                  {"relation_bonus": int, "record_type": str})
     for key in ("format_version", "region", "recognizer_version"):
-        text(record["metadata"][key])
+        text(metadata[key])
+    if metadata["stage"] != "active":
+        raise ValueError("Unsupported source record stage")
+    if metadata.get("record_type") is not None and metadata["record_type"] not in RECORD_TYPES:
+        raise ValueError("Unsupported source record type: metadata.record_type")
+    source_fields(metadata["record_id"], {"self": str}, "metadata.record_id", {"parent1": str, "parent2": str})
+    source_character(record["trainee"], "trainee")
+    source_fields(record["status"], dict.fromkeys(("speed", "stamina", "power", "guts", "intelligence"), int),
+                  "status")
+    source_fields(record["aptitudes"], dict.fromkeys(("ground", "distance", "style"), dict), "aptitudes")
+    for group, keys in (("ground", ("turf", "dirt")),
+                        ("distance", ("short_range", "mile_range", "middle_range", "long_range")),
+                        ("style", ("lead_pace", "with_pace", "off_pace", "late_charge"))):
+        source_fields(record["aptitudes"][group], dict.fromkeys(keys, int), f"aptitudes.{group}")
+    for i, skill in enumerate(record["skills"]):
+        source_fields(skill, {"id": int}, f"skills[{i}]", {"level": int})
+    source_fields(record["factors"], dict.fromkeys(kr.GROUPS, list), "factors")
+    for group in kr.GROUPS:
+        for i, factor in enumerate(record["factors"][group]):
+            source_fields(factor, {"id": int, "star": int}, f"factors.{group}[{i}]")
     if len(record["support_cards"]) != 6:
         raise ValueError("Expected six original support-card entries")
+    for i, card in enumerate(record["support_cards"]):
+        source_fields(card, dict.fromkeys(("id", "rank", "level"), int), f"support_cards[{i}]")
+    source_fields(record["family"], {"parent1": dict, "parent2": dict}, "family")
+    for group in ("parent1", "parent2"):
+        parent = record["family"][group]
+        source_fields(parent, dict.fromkeys(("self", "parent1", "parent2"), dict), f"family.{group}",
+                      {"rental": bool})
+        for key in ("self", "parent1", "parent2"):
+            source_character(parent[key], f"family.{group}.{key}")
+    source_fields(record["scenario"], {"id": int}, "scenario")
+    race_keys = ("title", "place", "ground", "distance", "variation", "weather", "strategy", "turn", "position")
+    for i, race in enumerate(record["races"]):
+        source_fields(race, dict.fromkeys(race_keys, int), f"races[{i}]")
 
 
 def identity(row):

@@ -10,7 +10,8 @@ non-factor values remain unverified for Korean-client accuracy.
 
 ## Inputs and runtime
 
-Use Python 3.11+ with the versions in each script's inline dependency block.
+Use Python 3.12+ with the versions in each script's inline dependency block.
+The pinned NumPy 2.5.4 requires Python 3.12 or newer.
 Tested: Windows Python 3.14.6, RapidOCR 3.10.0, ONNX Runtime 1.31.1 CPU,
 opencv-python-headless 4.13.0.92 and NumPy 2.5.4. The export command needs only
 the declared OpenCV/NumPy dependencies; it does not run or download an OCR model.
@@ -126,6 +127,13 @@ lengths and allowed-path differences. It preserves `format_version`, copied
 unknown fields and all other values. It never calls Dart `upgradeFormat`,
 which deliberately changes some legacy skill/support values.
 
+Before preparing a review or exporting, it checks required nested source fields
+and JSON types against the existing native/Dart record contracts. An empty
+`trainee`, missing status/aptitude/family/race fields or mistyped entries are
+refused before output replacement. Legacy optional fields may remain absent or
+null; unknown extensions are retained. These structure checks do not certify the
+copied non-factor values for Korean accuracy or fill in missing values.
+
 An existing derived file is refused unless `--replace-sha256 <current-hash>`
 matches its exact bytes. Writers serialize through a sibling exclusive lock.
 Staging uses the target directory, flushes bytes, reads/validates them, writes
@@ -156,11 +164,13 @@ change sharing. Detailed provenance remains outside the existing record schema.
 python -m unittest discover -s tool/kr_factor_ocr -v
 ```
 
-**32 deterministic tests passed:** the original 13 diagnostic checks and 19
+**36 deterministic tests passed:** the original 13 diagnostic checks and 23
 review/export tests. These cover SID 0, range/master identity, source/crop/review
 binding, group/order/count and coverage refusals, legacy/source-field preservation,
 previous-output pins, lock collision, final input/output race checks, and injected
-flush, stage-readback, evidence-write and replace failures. Their pixels/OCR are
+flush, stage-readback, evidence-write and replace failures. Nested source completeness,
+wrong types/enums and optional/legacy/unknown-field preservation are covered,
+including refusal before replacing a prior output. Their pixels/OCR are
 synthetic and are not an OCR-accuracy measurement.
 
 The actual workflow was executed on one preserved Korean capture, groups

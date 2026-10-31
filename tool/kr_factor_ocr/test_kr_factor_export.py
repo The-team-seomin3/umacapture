@@ -324,6 +324,97 @@ class VerifiedExport(unittest.TestCase):
             with self.subTest(malformed=type(malformed).__name__), self.assertRaises(ValueError):
                 exporter.verify_review(self.ctx, malformed)
 
+    def test_required_nested_source_fields_and_types(self):
+        cases = [
+            (("metadata", "record_id"), {}),
+            (("metadata", "trainer_id"), None),
+            (("metadata", "captured_date"), 123),
+            (("metadata", "strategy"), True),
+            (("metadata", "stage"), "unknown-stage"),
+            (("trainee",), {}),
+            (("trainee", "rank"), False),
+            (("status",), {}),
+            (("status", "speed"), "1200"),
+            (("aptitudes", "ground"), {}),
+            (("aptitudes", "distance"), {}),
+            (("aptitudes", "style"), {}),
+            (("skills",), [{}]),
+            (("skills",), [{"id": False}]),
+            (("support_cards", 0), {}),
+            (("support_cards", 0, "level"), 1.5),
+            (("family", "parent1"), {}),
+            (("family", "parent2", "parent1"), {}),
+            (("scenario",), {}),
+            (("races",), [{}]),
+        ]
+        for path, value in cases:
+            bad = copy.deepcopy(self.record)
+            parent = bad
+            for key in path[:-1]:
+                parent = parent[key]
+            parent[path[-1]] = value
+            with self.subTest(path=path), self.assertRaises(ValueError):
+                exporter.full_record(bad)
+
+    def test_optional_legacy_and_unknown_nested_fields_are_preserved(self):
+        source = copy.deepcopy(self.record)
+        source["metadata"].update(relation_bonus=None, record_type=None)
+        source["metadata"]["record_id"].update(parent1=None, parent2=None)
+        source["trainee"].update(record_type=None, future_field={"opaque": [False, None]})
+        source["skills"] = [{"id": 1}, {"id": 2, "level": None}, {"id": 3, "level": 4}]
+        for parent in source["family"].values():
+            parent["rental"] = None
+            for key in ("self", "parent1", "parent2"):
+                parent[key].pop("record_type", None)
+        before = copy.deepcopy(source)
+        exporter.full_record(source)
+        self.assertEqual(source, before)
+        ctx = copy.copy(self.ctx)
+        ctx.record = source
+        derived = exporter.derived_record(ctx, exporter.verify_review(self.ctx, self.review)[0])
+        expected = copy.deepcopy(before)
+        expected["metadata"]["region"] = "KR"
+        expected["factors"] = {g: [{"id": 0, "star": 2}] for g in kr.GROUPS}
+        self.assertEqual(derived, expected)
+
+    def test_optional_source_fields_reject_wrong_types_and_enums(self):
+        cases = [
+            (("metadata", "relation_bonus"), True),
+            (("metadata", "record_type"), "UnknownRecord"),
+            (("metadata", "record_id", "parent1"), 123),
+            (("trainee", "record_type"), "UnknownRecord"),
+            (("family", "parent1", "rental"), 1),
+            (("skills",), [{"id": 1, "level": "2"}]),
+        ]
+        for path, value in cases:
+            bad = copy.deepcopy(self.record)
+            parent = bad
+            for key in path[:-1]:
+                parent = parent[key]
+            parent[path[-1]] = value
+            with self.subTest(path=path), self.assertRaises(ValueError):
+                exporter.full_record(bad)
+
+    def test_incomplete_nested_source_refused_before_replacing_output(self):
+        prior = self.prior_output()
+        source = copy.deepcopy(self.record)
+        source["trainee"] = {}
+        (self.source / "record.json").write_bytes(exporter.encoded(source))
+        diagnostic_path = self.diagnostics / "diagnostic.json"
+        diagnostic = exporter.read_json(diagnostic_path)
+        source_hash = kr.digest(self.source / "record.json")
+        diagnostic["inputs_sha256"]["record.json"] = source_hash
+        diagnostic_path.write_bytes(exporter.encoded(diagnostic))
+        self.review["bindings"]["inputs_sha256"]["record.json"] = source_hash
+        self.review["bindings"]["diagnostic_sha256"] = kr.digest(diagnostic_path)
+        self.save_review()
+        before = {p: kr.digest(p) for p in self.source.iterdir()}
+        with self.assertRaisesRegex(ValueError, "trainee.icon"):
+            exporter.export(self.args)
+        self.assertEqual(self.args.output.read_bytes(), prior)
+        self.assertFalse(self.args.evidence_output.exists())
+        self.assertEqual({p: kr.digest(p) for p in self.source.iterdir()}, before)
+
     def test_output_and_evidence_destinations_refuse_inputs(self):
         for target in (self.source / "record.json", self.diagnostics / "record-kr.json", self.source / "nested/record-kr.json"):
             self.args.output = target
