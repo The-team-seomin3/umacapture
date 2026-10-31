@@ -34,6 +34,7 @@ falling back to a slower path.
 
 Application UI: [Korean localization and validation](docs/korean-ui-localization.md).
 Windows desktop starts in Korean; game-client recognition support is separate.
+Windows local delivery: [install-free build and verification](docs/windows-portable.md), with [#15 integration validation](docs/validation/windows-isolation-integration-2026-10-31.md).
 
 PoC/MVP development guidance: [AGENTS.md](AGENTS.md), with links to contracts, tooling, verification and native architecture.
 

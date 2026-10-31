@@ -43,3 +43,5 @@ verify the actual process path on launch/restart and observe forbidden outbound
 routes with controlled settings/data. Do not send test reports upstream.
 Not Tested never establishes distribution readiness. A speculative old reporting
 queue exercise is needed only if concrete residual-send evidence warrants it.
+
+Local Windows packaging and runtime evidence are recorded in [#11 integration validation](validation/windows-isolation-integration-2026-10-31.md). The source-only validation above predates that local bundle.

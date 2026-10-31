@@ -120,6 +120,10 @@ add_dependencies(${BINARY_NAME} flutter_assemble)
 
 # TODO: Should use TARGET_RUNTIME_DLLS. (cmake 3.21 or later)
 set(SYSTEM_DLL_DIR "C:/Windows/System32")
+# Release/Profile use the selected compiler's redistributable runtime set. A
+# System32 source depends on host runtime installation and tool bitness.
+set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
+include(InstallRequiredSystemLibraries)
 set(
         DEPENDENT_DLLS
 
@@ -132,20 +136,16 @@ set(
 
         # VC++ Redistributable
         $<$<CONFIG:Debug>:${SYSTEM_DLL_DIR}/vcruntime140d.dll>
-        $<${RELEASE_OR_PROFILE}:${SYSTEM_DLL_DIR}/vcruntime140.dll>
-
         $<$<CONFIG:Debug>:${SYSTEM_DLL_DIR}/vcruntime140_1d.dll>
-        $<${RELEASE_OR_PROFILE}:${SYSTEM_DLL_DIR}/vcruntime140_1.dll>
-
         $<$<CONFIG:Debug>:${SYSTEM_DLL_DIR}/msvcp140d.dll>
-        $<${RELEASE_OR_PROFILE}:${SYSTEM_DLL_DIR}/msvcp140.dll>
-
         $<$<CONFIG:Debug>:${SYSTEM_DLL_DIR}/concrt140d.dll>
-        $<${RELEASE_OR_PROFILE}:${SYSTEM_DLL_DIR}/concrt140.dll>
-
         # For debug mode build for non-developer
         $<$<CONFIG:Debug>:${SYSTEM_DLL_DIR}/ucrtbased.dll>
 )
+
+foreach(RUNTIME_DLL IN LISTS CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS)
+    list(APPEND DEPENDENT_DLLS "$<${RELEASE_OR_PROFILE}:${RUNTIME_DLL}>")
+endforeach()
 
 add_custom_command(
         TARGET ${BINARY_NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E
