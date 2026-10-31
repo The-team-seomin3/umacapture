@@ -110,6 +110,16 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
+  fonts:
+    - family: NanumGothic
+      fonts:
+        - asset: assets/fonts/nanum_gothic/NanumGothic-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/nanum_gothic/NanumGothic-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/nanum_gothic/NanumGothic-ExtraBold.ttf
+          weight: 800
+
   assets:
     - assets/
     - assets/translations/

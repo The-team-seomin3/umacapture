@@ -17,9 +17,13 @@ uses a localized bracketed example; its caller supplies no named argument. The J
 Translate the approved semantics in [wording decisions](wording-decisions.md),
 including quarantine contents, recovery outcomes and capture retry instructions.
 
-The Korean theme uses Windows' built-in Malgun Gothic, including the waiting
-screen; Japanese keeps its existing theme. The toast close action uses Flutter's
-Material localization. The missing-file hint in record reports uses the existing
+The Korean theme and waiting screen use bundled Nanum Gothic 400/700/800, selected
+by the owner on 2026-10-31. The unmodified official font files and SIL OFL license
+are included; source provenance is in assets/fonts/nanum_gothic/SOURCE.md. Japanese
+keeps its existing theme. The toast close action uses Flutter's
+Material localization. Filled-toast text/icons/dismissal choose a contrasting
+foreground from existing theme roles; all four types in light/dark have regression
+coverage for at least 4.5:1 contrast. The missing-file hint in record reports uses the existing
 localized missing-file sentence. Product names, developer-only theme gallery text
 and unused dummy-page text are retained. Navigation labels resolve when read so they cannot retain
 a previous localization table.
@@ -59,8 +63,15 @@ with eight pre-existing deprecated-member informational notices in other tests.
 The startup widget test waits for real asset I/O and uses Flutter's Windows platform
 variant, covering saved Japanese preferences before rendering Korean UI.
 
-Resource checks passed for all 1,295 leaves (9 intentional blanks). The installed
-Malgun Gothic cmap covers all 477 distinct Hangul syllables used in the translation;
-this proves glyph availability, not rendered layout. Windows full-page visual
-checks remain Not Tested; keep the issue open until that validation is recorded.
+Resource checks passed for all 1,295 leaves (9 intentional blanks). Bundled Nanum
+Gothic covers all 477 distinct Hangul syllables used in the translation. The opt-in
+[visual harness](../tool/visual/README.md) rendered 60 real-font widget images in
+light/dark at 1280x900 and 480x900; all had no framework layout errors and were
+visually reviewed. See the [image report](validation/korean-ui-preview/README.md).
+The review exposed and corrected toast foreground contrast and missing Korean
+spacing before a settings link. Local contrast/Korean/storage tests pass 52/52.
+
+This is production-widget evidence with synthetic providers, not a native Windows
+application run. Full native window/OS dialog/DPI/lifecycle and populated-record
+visual checks remain Not Tested; keep the issue open for the #11 handoff.
 No Windows binary or ZIP is delivered by this issue. Use the PR for current CI status.

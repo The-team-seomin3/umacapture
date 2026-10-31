@@ -32,7 +32,7 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
   /// Danger / failure state. Wired to `colorScheme.error` at registration.
   final Color danger;
 
-  /// Foreground for text/icons drawn on a filled accent (e.g. toast chips).
+  /// Preferred foreground for filled accents; toasts compare it with surface roles for contrast.
   final Color onAccent;
 
   /// Amber/gold accent for rating stars.
