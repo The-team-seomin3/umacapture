@@ -17,6 +17,19 @@ already authorized by the owner; stop only affected unapproved scope or decision
 Agent-direct game capture/control and anti-cheat probing are outside the current
 owner operating boundary; reuse the accepted owner-operated capture evidence.
 
+## Team responsibilities
+
+The owner adopted **General Team**, **Recognition Team**, **App Team** and the
+existing **Collabo Team** in [#27](https://github.com/The-team-seomin3/umacapture/issues/27).
+General coordinates integration, guidance, CI and Windows delivery; Recognition
+owns capture/recognition and record production; App owns Flutter UI, local storage
+and consumer/export behavior; Collabo coordinates authorized cross-repository
+requests and evidence delivery. Use the [team responsibility map](docs/agents/teams.md)
+for boundaries, manager responsibilities and handoffs before routing team work.
+Select one primary team per approved change, reuse active work and retain its
+existing owner until an explicit handoff. Team names grant no new implementation,
+publication, merge, deployment or private-data access authority.
+
 ## Working rules
 
 - Converse in the user's language; repository artifacts are English, except localized
@@ -98,6 +111,6 @@ capture/record contracts, not a requirement to reopen the PoCs or change native 
 | #5: independent offline postprocessing | Start with the [offline tool and review/export manual](tool/kr_factor_ocr/README.md), [issue #5's reviewed-output handoff](https://github.com/The-team-seomin3/umacapture/issues/5#issuecomment-6540427803) and [record contracts](docs/agents/contracts.md#scope-and-contracts). Reuse #2–#4 results |
 | Relevant tests and runtime limits | [native factor tests](native/test/chara_detail), [integration manifest](native/test/integration/cases.json), [native test manual](native/test/README.md), matching [Dart tests](test) |
 
-These instructions cover this PoC/MVP work, not a general maintenance workflow.
+Team routing applies across this repository; the workflow-specific rules above retain their PoC/MVP scope.
 Existing technical manuals supply their own detail; current source/config owns
 pins and generated outputs. No Claude loader or skill installation is required.
