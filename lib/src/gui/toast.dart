@@ -85,7 +85,7 @@ class Toaster {
         behavior: SnackBarBehavior.floating,
         dismissDirection: isNarrow ? DismissDirection.horizontal : DismissDirection.down,
         duration: duration,
-        action: isNarrow ? null : SnackBarAction(textColor: onAccent, label: 'CLOSE', onPressed: () {}),
+        action: isNarrow ? null : SnackBarAction(textColor: onAccent, label: MaterialLocalizations.of(context).closeButtonLabel, onPressed: () {}),
         content: TextButton.icon(
           icon: Icon(iconMap[data.type], color: onAccent),
           label: Padding(
