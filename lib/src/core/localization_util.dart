@@ -1,6 +1,8 @@
 import 'package:easy_localization/easy_localization.dart';
 // ignore: depend_on_referenced_packages
 import 'package:easy_logger/easy_logger.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:logger/logger.dart';
 
 import '/src/core/utils.dart';
@@ -42,4 +44,42 @@ Future<void> setupLocalization() async {
     ],
   );
   await EasyLocalization.ensureInitialized();
+}
+
+/// Both startup surfaces use the same locale policy. Windows is the Korean UI build.
+class AppLocalization extends StatelessWidget {
+  const AppLocalization({super.key, required this.child});
+
+  final Widget child;
+
+  static Locale initialLocaleFor(TargetPlatform platform, {required bool isWeb}) =>
+      !isWeb && platform == TargetPlatform.windows ? const Locale('ko') : const Locale('ja');
+
+  @override
+  Widget build(BuildContext context) => EasyLocalization(
+    path: 'assets/translations',
+    useOnlyLangCode: true,
+    useFallbackTranslations: true,
+    supportedLocales: const [Locale('ko'), Locale('ja')],
+    startLocale: initialLocaleFor(defaultTargetPlatform, isWeb: kIsWeb),
+    fallbackLocale: const Locale('ja'),
+    saveLocale: false,
+    child: Builder(
+      builder: (context) {
+        final initial = initialLocaleFor(defaultTargetPlatform, isWeb: kIsWeb);
+        // easy_localization 3.0.8 can prefer the device locale when a saved locale
+        // exists, even with saveLocale disabled. Resolve that before mounting UI.
+        if (context.locale != initial) {
+          return FutureBuilder<void>(
+            future: context.setLocale(initial),
+            builder: (context, snapshot) {
+              if (snapshot.hasError) return ErrorWidget(snapshot.error!);
+              return snapshot.connectionState == ConnectionState.done ? child : const SizedBox.shrink();
+            },
+          );
+        }
+        return child;
+      },
+    ),
+  );
 }

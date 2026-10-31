@@ -15,7 +15,7 @@ class PageLabel {
 }
 
 class Pages {
-  static final labels = <PageLabel>[
+  static List<PageLabel> get labels => <PageLabel>[
     PageLabel(
       route: const DashboardRoute(),
       label: "pages.dashboard.title".tr(),

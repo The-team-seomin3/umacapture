@@ -25,7 +25,7 @@ import 'package:easy_localization/src/localization.dart';
 import 'package:easy_localization/src/translations.dart';
 import 'package:flutter/widgets.dart';
 
-/// The single translation file this app ships (see the project's language policy).
+/// The Japanese baseline used by existing wording tests.
 const _japaneseTranslations = 'assets/translations/ja.json';
 
 /// The locale the loaded translations are installed under.
@@ -33,9 +33,10 @@ const appTestLocale = Locale('ja');
 
 /// Loads `assets/translations/ja.json` into `easy_localization`, so `.tr()` resolves real strings and
 /// interpolates `namedArgs`. Call once per test file (e.g. from `setUpAll`); repeated calls are harmless.
-void loadAppTranslations() {
-  final json = jsonDecode(File(_japaneseTranslations).readAsStringSync()) as Map<String, dynamic>;
-  Localization.load(appTestLocale, translations: Translations(json));
+void loadAppTranslations({Locale locale = appTestLocale}) {
+  final json =
+      jsonDecode(File('assets/translations/${locale.languageCode}.json').readAsStringSync()) as Map<String, dynamic>;
+  Localization.load(locale, translations: Translations(json));
 }
 
 /// The sentence at [dottedKey], read out of the shipped `ja.json` **as a literal**.
@@ -98,8 +99,7 @@ List<LocalizationLogLine> localizationLogsDuring(void Function() body) {
 /// A scan rather than a constant: the rules that make an optional line work — a deliberate
 /// omission written as `""`, an absent key meaning a defect — hold per file, and a second locale
 /// that simply left the key out would put the deliberate case back into the defect case with
-/// nothing to notice it. Today `main.dart` declares `supportedLocales: const [Locale('ja')]` and
-/// this returns one path.
+/// nothing to notice it. Both Japanese and Korean obey these rules.
 List<String> appLocaleFiles() {
   final files = Directory('assets/translations').listSync().whereType<File>();
   final paths = files.map((f) => f.path.replaceAll(r'\', '/')).where((p) => p.endsWith('.json')).toList();

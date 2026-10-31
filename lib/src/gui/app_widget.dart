@@ -16,6 +16,7 @@ import '/src/core/platform_controller.dart';
 import '/src/core/providers.dart';
 import '/src/core/utils.dart';
 import '/src/gui/addon.dart';
+import '/src/gui/app_fonts.dart';
 import '/src/gui/chara_detail/data_table_widget.dart';
 import '/src/gui/chara_detail/storage_status_banner.dart';
 import '/src/gui/common.dart';
@@ -422,7 +423,7 @@ class ApplicationWidgetState extends ConsumerState<ApplicationWidget> {
         subThemesData: const FlexSubThemesData(outlinedButtonOutlineSchemeColor: SchemeColor.primary),
         visualDensity: FlexColorScheme.comfortablePlatformDensity,
         useMaterial3: true,
-        fontFamily: GoogleFonts.mPlusRounded1c().fontFamily,
+        fontFamily: context.locale.languageCode == 'ko' ? koreanUiFontFamily : GoogleFonts.mPlusRounded1c().fontFamily,
       ),
     );
 
@@ -435,7 +436,7 @@ class ApplicationWidgetState extends ConsumerState<ApplicationWidget> {
         subThemesData: const FlexSubThemesData(outlinedButtonOutlineSchemeColor: SchemeColor.primary),
         visualDensity: FlexColorScheme.comfortablePlatformDensity,
         useMaterial3: true,
-        fontFamily: GoogleFonts.mPlusRounded1c().fontFamily,
+        fontFamily: context.locale.languageCode == 'ko' ? koreanUiFontFamily : GoogleFonts.mPlusRounded1c().fontFamily,
       ),
     );
 

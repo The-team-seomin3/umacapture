@@ -15,6 +15,7 @@ import '/src/core/localization_util.dart';
 import '/src/core/raw_frame_probe.dart';
 import '/src/core/sentry_util.dart';
 import 'src/core/mapper_init.dart';
+import 'src/gui/app_fonts.dart';
 import 'src/gui/app_widget.dart';
 import 'src/preference/storage_box.dart';
 import 'src/preference/window_state.dart';
@@ -82,6 +83,9 @@ List<Map<String, dynamic>> platformDisclosures({
 /// must not start. Every other platform and mode only warns, because a Windows-only
 /// checkout legitimately never provisions the web assets.
 Future<void> setupLicense() async {
+  LicenseRegistry.addLicense(() async* {
+    yield LicenseEntryWithLineBreaks(const ['Nanum Gothic'], await rootBundle.loadString(koreanUiFontLicenseAsset));
+  });
   final nativeInfo = jsonDecode(await rootBundle.loadString(nativeLicenseInfoAsset)) as Map<String, dynamic>;
   final webInfo = await loadWebLicenseInfo();
 
@@ -319,15 +323,11 @@ class _AppInstanceWaitingApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return EasyLocalization(
-      path: "assets/translations",
-      useOnlyLangCode: true,
-      useFallbackTranslations: true,
-      supportedLocales: const [Locale('ja')],
-      fallbackLocale: const Locale('ja'),
+    return AppLocalization(
       child: Builder(
         builder: (context) => MaterialApp(
           debugShowCheckedModeBanner: false,
+          theme: ThemeData(fontFamily: context.locale.languageCode == 'ko' ? koreanUiFontFamily : null),
           localizationsDelegates: context.localizationDelegates,
           supportedLocales: context.supportedLocales,
           locale: context.locale,
@@ -405,14 +405,7 @@ void run() {
       //   if (kDebugMode) ProviderLogger(),
       // ],
       // EasyLocalization must be placed at the root. Otherwise, hot reload will not work for some reason.
-      child: EasyLocalization(
-        path: "assets/translations",
-        useOnlyLangCode: true,
-        useFallbackTranslations: true,
-        supportedLocales: const [Locale('ja')],
-        fallbackLocale: const Locale('ja'),
-        child: ApplicationWidget(),
-      ),
+      child: AppLocalization(child: ApplicationWidget()),
     ),
   );
 }
