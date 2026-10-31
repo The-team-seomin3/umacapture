@@ -1249,7 +1249,10 @@ class _ErrorReportLinks extends ConsumerWidget {
               // disabled and drop its tap action. [Disabled] withdraws the subtree from focus on
               // its own, so this is the button's own account of itself, not the guard.
               onPressed: blockedSentence != null ? null : () => ReportScreenDialog.show(ref.base),
-              child: Text("$tr_capture.capture_control.report_screen.label".tr()),
+              child: Text(
+                "$tr_capture.capture_control.report_screen.label".tr(),
+                style: const TextStyle(decoration: TextDecoration.lineThrough),
+              ),
             ),
           ),
         ),
@@ -1292,7 +1295,10 @@ class _ErrorReportLinks extends ConsumerWidget {
                   ref.base,
                   onSubmit: (report) => submitImportErrorReport(report, importState: importState),
                 ),
-          child: Text("$tr_capture.capture_control.report_import.label".tr()),
+          child: Text(
+            "$tr_capture.capture_control.report_import.label".tr(),
+            style: const TextStyle(decoration: TextDecoration.lineThrough),
+          ),
         ),
       ),
     );
@@ -1934,7 +1940,9 @@ class CaptureControlGroup extends ConsumerWidget {
         // on their own and these are controls. The same import snapshot the banner and the preview
         // tile below read, so the link's gate and the card's own account of what is running can
         // never disagree.
-        _ErrorReportLinks(activity: activity, importState: import, frameGrabAvailable: frameGrabAvailable),
+        UnavailableFeature(
+          child: _ErrorReportLinks(activity: activity, importState: import, frameGrabAvailable: frameGrabAvailable),
+        ),
         const WebCaptureNotice(),
         // The gates, under the controls they disable — the one place on this card where a line
         // explains a control rather than reporting on the pipeline.

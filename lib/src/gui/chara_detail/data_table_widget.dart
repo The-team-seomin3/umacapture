@@ -29,7 +29,6 @@ import '/src/gui/chara_detail/delete_record_dialog.dart';
 import '/src/gui/chara_detail/export_button.dart';
 import '/src/gui/chara_detail/preview_dialog.dart';
 import '/src/gui/chara_detail/regenerate_record_dialog.dart';
-import '/src/gui/chara_detail/report_record_dialog.dart';
 import '/src/gui/chara_detail/side_preview.dart';
 import '/src/gui/chara_detail/storage_status_banner.dart';
 import '/src/gui/common.dart';
@@ -488,12 +487,15 @@ class _CharaDetailDataTableWidgetState extends ConsumerState<_CharaDetailDataTab
               style: (selecting || importing || regenerationHeld) ? disabledStyle : style,
             ),
           ),
-        if (source == RecordSource.active && isSentryAvailable())
+        if (source == RecordSource.active)
           MenuItem(
             constraints: constraints,
             icon: const Icon(Symbols.flag, weight: iconWeight),
-            onSelected: (_) => ReportRecordDialog.show(ref.base, dirOf(record)),
-            label: Text("$tr_chara_detail.context_menu.report_record".tr(), style: style),
+            onSelected: null,
+            label: Text(
+              "$tr_chara_detail.context_menu.report_record".tr(),
+              style: (disabledStyle ?? const TextStyle()).copyWith(decoration: TextDecoration.lineThrough),
+            ),
           ),
       ],
     );

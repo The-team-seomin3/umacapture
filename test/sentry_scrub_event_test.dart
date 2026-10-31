@@ -448,9 +448,8 @@ void main() {
       }
     });
 
-    test('the wiring exists on both platforms, which the suite cannot observe because no hub runs', () {
-      // Read off the syntax tree because it cannot be run: both assignments sit inside the options
-      // callback `SentryFlutter.init` invokes, and invoking that from a test would start the real SDK.
+    test('the fork has no SDK initialization options wiring', () {
+      // Scrubbing helpers remain covered above; the fork must not wire any SDK init callback.
       final sentryUtil = parseDartFile('lib/src/core/sentry_util.dart');
       expect(sentryUtil.diagnostics, isEmpty, reason: 'sentry_util.dart does not parse, so the wiring was not read');
       final unit = sentryUtil.unit;
@@ -459,8 +458,8 @@ void main() {
           if (_assignedName(assignment.leftHandSide) == 'beforeSend')
             enclosingDeclarationName(assignment): assignment.rightHandSide.toSource(),
       };
-      // One per init path, desktop and web, and each hands over the shared function itself.
-      expect(wired, {'_runWithSentry': 'sentryBeforeSend', '_runWithSentryWeb': 'sentryBeforeSend'});
+      // Neither desktop nor web initializes the reporting SDK.
+      expect(wired, isEmpty);
       // What `sentryBeforeSend` returns, scrubbed or dropped, is asserted by behaviour above.
     });
   });

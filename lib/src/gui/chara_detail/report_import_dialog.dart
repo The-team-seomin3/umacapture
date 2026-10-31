@@ -231,6 +231,7 @@ class ReportImportDialog extends ConsumerStatefulWidget {
 
   /// Opens the dialog. [onSubmit] receives the frame and the note the user settled on.
   static void show(RefBase ref, {required void Function(ImportErrorReport report) onSubmit}) {
+    if (!isSentryAvailable()) return;
     CardDialog.show(ref, (_) => ReportImportDialog(onSubmit: onSubmit));
   }
 

@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '/src/gui/common.dart';
-import '/src/preference/privacy_setting.dart';
 
 class WindowCaptionButtonAlt extends StatefulWidget {
   final Widget icon;
@@ -99,14 +98,15 @@ class _WindowCaptionAltState extends ConsumerState<WindowCaptionAlt> with Window
               ),
             ),
           ),
-          if (isFeedbackAvailable(ref))
-            WindowCaptionButtonAlt(
+          UnavailableFeature(
+            child: WindowCaptionButtonAlt(
               icon: Icon(Symbols.feedback_rounded, size: 20, color: theme.colorScheme.onSurface),
               tooltip: "app.feedback.tooltip".tr(),
               onPressed: () {
-                showFeedbackDialog(context);
+                // Disabled in this fork.
               },
             ),
+          ),
           WindowCaptionButton.minimize(
             brightness: theme.brightness,
             onPressed: () async {

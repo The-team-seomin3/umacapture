@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '/src/gui/common.dart';
-import '/src/preference/privacy_setting.dart';
 
 /// Height of the action row. Kept just above the 24px icon so the drawer stays
 /// a thin strip of chrome rather than a full-height toolbar.
@@ -197,10 +196,7 @@ class _FeedbackDrawerState extends ConsumerState<FeedbackDrawer> with SingleTick
 
   @override
   Widget build(BuildContext context) {
-    // Same gate as the desktop title-bar button: no telemetry, no feedback.
-    if (!isFeedbackAvailable(ref)) {
-      return widget.child;
-    }
+    // Keep the grip in its existing position, but withdraw the drawer from input.
     final theme = Theme.of(context);
     return AnimatedBuilder(
       animation: _controller,
@@ -224,7 +220,7 @@ class _FeedbackDrawerState extends ConsumerState<FeedbackDrawer> with SingleTick
               // clipped away by the enclosing Stack.
               child: Transform.translate(
                 offset: Offset(0, -_actionsHeight * (1 - _controller.value)),
-                child: _drawer(theme),
+                child: UnavailableFeature(child: _drawer(theme)),
               ),
             ),
           ],

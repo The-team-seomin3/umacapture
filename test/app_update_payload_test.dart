@@ -197,10 +197,8 @@ void main() {
       });
     }
 
-    test('downloadAndOpen hands its failures to reportDownloadFailure', () {
-      // The cases above drive `reportDownloadFailure` itself; this reads only that `downloadAndOpen`
-      // still names it, so a failure arm rewritten to log and return is red. Where in the chain the
-      // handler sits is not read.
+    test('downloadAndOpen has no executable download or launch path', () {
+      // The fork retains payload validators but has no executable updater callback.
       final source = parseDartFile('lib/src/gui/dashboard.dart');
       expect(source.diagnostics, isEmpty, reason: 'dashboard.dart does not parse, so the wiring was not read');
       final method = methodDeclaration(source.unit, 'AppUpdaterGroup', 'downloadAndOpen');
@@ -209,8 +207,8 @@ void main() {
       }
       expect(
         referencesIn(method.body).map((reference) => reference.name),
-        contains('reportDownloadFailure'),
-        reason: 'downloadAndOpen no longer hands its failures to reportDownloadFailure',
+        isEmpty,
+        reason: 'the retired updater must not retain an executable action',
       );
     });
   });
