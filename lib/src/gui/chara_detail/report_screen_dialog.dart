@@ -46,6 +46,7 @@ class ReportScreenDialog extends ConsumerStatefulWidget {
   /// exist without an owner already waiting for it, and only the mounted dialog
   /// is that owner (see [_ReportScreenDialogState.initState]).
   static void show(RefBase ref) {
+    if (!isSentryAvailable()) return;
     CardDialog.show(ref, (_) => const ReportScreenDialog());
   }
 

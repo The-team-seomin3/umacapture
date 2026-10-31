@@ -33,6 +33,7 @@ class ReportRecordDialog extends ConsumerStatefulWidget {
   /// Every way out of this dialog closes only the dialog on top, so opened [over] it leaves the
   /// dialogs underneath as they were.
   static void show(RefBase ref, DirectoryPath directory, {bool over = false}) {
+    if (!isSentryAvailable()) return;
     CardDialog.show(ref, (_) => ReportRecordDialog(directory: directory), over: over);
   }
 

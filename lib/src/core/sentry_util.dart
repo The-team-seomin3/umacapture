@@ -7,23 +7,17 @@ import 'package:dio/io.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:feedback/feedback.dart';
 import 'package:flutter/foundation.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:uuid/uuid.dart';
 
-import '/const.dart';
 // `withoutSecrets` only: `logger` keeps arriving through `utils.dart`'s re-export, which is what the
 // rest of this file already uses. Named the same way `wasm_worker_client.dart` names it.
 import '/src/core/app_logger.dart' show withoutSecrets, withoutUserPaths;
-import '/src/core/mapper_init.dart';
 import '/src/core/path_entity.dart';
 import '/src/core/platform_controller.dart';
 import '/src/core/providers.dart';
 import '/src/core/utils.dart';
-import '/src/core/version_check.dart';
 import '/src/gui/toast.dart';
-import '/src/preference/privacy_setting.dart';
 import '/src/preference/settings_state.dart';
 import '/src/preference/storage_box.dart';
 
@@ -37,15 +31,7 @@ class SentryRateLimit with SentryRateLimitMappable {
   SentryRateLimit(this.available, this.rateLimitPerMonth);
 
   static Future<SentryRateLimit?> download() async {
-    initializeMappers();
-    try {
-      return await createDiagnosticDio(
-        operation: "download_sentry_rate_limit_config",
-      ).get(Const.sentryRateLimitConfigUrl).then((response) => SentryRateLimitMapper.fromJson(response.toString()));
-    } catch (exception, stackTrace) {
-      logger.e("Failed to download sentry rate limit config.", exception, stackTrace);
-      return null;
-    }
+    return null; // Reporting configuration is not fetched by this fork.
   }
 }
 
@@ -108,10 +94,7 @@ String getTelemetryId() {
 /// Called on opt-out, so a later opt-in mints a fresh ID instead of resurrecting the old
 /// one, which intentionally leaves the two stretches of use unlinkable.
 ///
-/// Only the persisted ID is cleared. [runWithSentry]'s consent gate is evaluated once at
-/// startup, so opting out mid-session stops neither the reporting already under way nor
-/// the ID on the live scope; both last until restart. Unsetting the scope user would not
-/// close that gap either, since sentry-native then falls back to its own installation ID.
+/// Only the persisted legacy ID is cleared. This fork never initializes a reporting SDK.
 void deleteTelemetryId() {
   _getTelemetryIdEntry().delete();
 }
@@ -177,7 +160,7 @@ FilePath takeScreenshot(RefBase ref) {
 }
 
 bool isSentryAvailable() {
-  return HubAdapter().isEnabled;
+  return false;
 }
 
 FutureOr<void> captureException(dynamic exception, dynamic stackTrace) {
@@ -570,7 +553,7 @@ Future<void> _deliverUserReport({
   Hub? hub,
 }) async {
   final target = hub ?? HubAdapter();
-  if (!target.isEnabled) {
+  if ((hub == null && !isSentryAvailable()) || !target.isEnabled) {
     // No hub to attach anything to, so nothing will ever read a released file again.
     await release?.call();
     logger.w("Reporting is disabled; the $titlePrefix report was not sent.");
@@ -878,11 +861,6 @@ class CustomHint {
   }
 }
 
-/// The single release-project DSN, shared by the desktop and web init paths. It is
-/// a public client value (safe to embed) and points at the same Sentry project;
-/// desktop and web events are told apart by the `environment` tag.
-const _sentryDsn = "https://6f9ab436b1ad46e2b1be72d8f44f03e0@o1367286.ingest.sentry.io/6670477";
-
 /// Shared `beforeSend` for both platforms: applies the [CustomHint] fingerprint
 /// and title-prefix carried through the event hint, and takes the user's Windows
 /// account name out of every path the event carries.
@@ -1181,141 +1159,8 @@ SentryEvent scrubUserPathsFromEvent(SentryEvent event) {
   return event;
 }
 
-/// Attaches the anonymous telemetry ID as the Sentry user so the session's
-/// distinct_id is one we own rather than the SDK's own fallback. Shared by both
-/// init paths (see the placement note at each call site).
-Future<void> _attachTelemetryUser() async {
-  await Sentry.configureScope((scope) => scope.setUser(SentryUser(id: getTelemetryId())));
-}
-
-/// Web init path: runs [SentryFlutter.init] without any of the desktop-only setup
-/// (`nativeDatabasePath`, `getApplicationSupportDirectory`, crash-DB creation, or
-/// any other `dart:io` call), so it is safe to reach on web. Error reporting is
-/// otherwise the same as desktop — the SDK auto-hooks `FlutterError.onError` and
-/// `PlatformDispatcher.onError`, and shares the DSN, release tag, `beforeSend`, and
-/// telemetry user. Web events are marked `environment = 'web'`.
-Future<void> _runWithSentryWeb(AppRunner runner) async {
-  // Same start-exactly-once guarantee as the desktop path: SentryFlutter.init calls
-  // appRunner internally, but a pre-init throw (loadLocalAppVersion) or an init
-  // failure would otherwise leave runApp() uncalled and the page blank.
-  var appStarted = false;
-  void startAppOnce() {
-    if (appStarted) {
-      return;
-    }
-    appStarted = true;
-    runner();
-  }
-
-  try {
-    final appVersion = await loadLocalAppVersion();
-    await SentryFlutter.init((SentryFlutterOptions options) {
-      // Debug builds never reach here (see runWithSentry), so only the release
-      // project DSN remains.
-      options.dsn = _sentryDsn;
-      options.environment = "web";
-      options.release = appVersion.toString();
-      options.enablePrintBreadcrumbs = false;
-      options.beforeSend = sentryBeforeSend;
-    }, appRunner: startAppOnce);
-    // Web uses the same telemetry-owned distinct_id as desktop; getTelemetryId is
-    // web-safe (StorageBox is Hive/IndexedDB on web). Kept inside this try so a
-    // failure still starts the app via the catch below.
-    await _attachTelemetryUser();
-  } catch (exception, stackTrace) {
-    logger.e("Failed to initialize Sentry; starting app without it.", exception, stackTrace);
-    startAppOnce();
-  }
-}
-
-Future<void> _runWithSentry(AppRunner runner) async {
-  // Guard so the app is started exactly once: SentryFlutter.init invokes
-  // appRunner internally, but if any pre-init step (loadLocalAppVersion,
-  // getApplicationSupportDirectory) or init itself throws, appRunner may never
-  // be called. Falling back here guarantees runApp() always runs, otherwise a
-  // startup failure leaves a blank white window with no error UI.
-  var appStarted = false;
-  void startAppOnce() {
-    if (appStarted) {
-      return;
-    }
-    appStarted = true;
-    runner();
-  }
-
-  try {
-    final appVersion = await loadLocalAppVersion();
-    // The sentry-native (crashpad) database defaults to `.sentry-native` in the current
-    // working directory. For a Program Files install without admin rights that directory
-    // is not writable, so native crash capture would silently fail. Pin it to a
-    // user-writable, persistent location under the app support directory (the same base
-    // PathInfo uses), as recommended by the Sentry docs for production deployments.
-    final supportDir = await getApplicationSupportDirectory();
-    final nativeDatabasePath = p.join(supportDir.path, sentryNativeDirName);
-    // sentry-native does not create missing parent directories, so the crash DB
-    // (and thus native crash capture) is silently dropped unless we create it.
-    await Directory(nativeDatabasePath).create(recursive: true);
-    await SentryFlutter.init((SentryFlutterOptions options) {
-      options.nativeDatabasePath = nativeDatabasePath;
-      // Debug builds never reach here (see runWithSentry), so only the release
-      // project DSN remains.
-      options.dsn = _sentryDsn;
-      options.environment = "desktop";
-      options.release = appVersion.toString();
-      options.enablePrintBreadcrumbs = false;
-      options.beforeSend = sentryBeforeSend;
-    }, appRunner: startAppOnce);
-    // Attach the anonymous telemetry ID so the session's distinct_id is one we own
-    // rather than sentry-native's DSN-scoped installation ID. NativeScopeObserver
-    // forwards this to sentry_set_user, which back-fills the session already started
-    // by init (verified on a release build: the session envelope carries this ID).
-    //
-    // Placement matters, keep it here: inside runWithSentry's gates the ID is never
-    // even generated when the user has opted out (or in debug), and inside this try a
-    // failure still lands in the catch below, which starts the app anyway. Wrapping
-    // appRunner instead would put failable work in front of the runApp guarantee.
-    await _attachTelemetryUser();
-  } catch (exception, stackTrace) {
-    // Never let a Sentry/startup-prep failure prevent the app from launching.
-    logger.e("Failed to initialize Sentry; starting app without it.", exception, stackTrace);
-    startAppOnce();
-  }
-}
-
+/// Reporting is unavailable in this fork, independently of build mode or saved consent.
+/// No SDK is initialized; the application runner is invoked exactly once.
 Future<void> runWithSentry(AppRunner runner) async {
-  // Never initialize Sentry in debug builds: developer-side errors must not be
-  // reported. Skipping init leaves HubAdapter disabled, so every captureXxx
-  // helper and the log breadcrumbs become no-ops. The privacy opt-out gate
-  // (allowPostUserData == deny) is honored on every platform the same way.
-  if (kDebugMode || allowPostUserData() == PostUserData.deny) {
-    logger.i("Error logging is disabled.");
-    runner();
-    return;
-  }
-  // Web takes a separate init path that omits the desktop-only crash-DB setup
-  // (getApplicationSupportDirectory / nativeDatabasePath, both dart:io) which has
-  // no web counterpart; error reporting is otherwise equivalent (see
-  // _runWithSentryWeb). Desktop keeps its native crash-DB init unchanged.
-  //
-  // UNMEASURED: web deliverability has never been measured. The browser sends
-  // envelopes to the Sentry ingest host from page script, so a content blocker
-  // or an extension filter list can drop them before they leave the tab, and the
-  // SDK reports that as an ordinary network failure with no user-visible sign.
-  // Nothing here detects it, and there is no first-party tunnel endpoint that
-  // would move ingest under this app's own origin.
-  //
-  // Consequence, and the reason this note exists rather than a code change: do
-  // NOT treat the absence of web events as evidence that web is healthy, and do
-  // not build a decision (release gating, regression checks, "is anyone hitting
-  // this?") on web telemetry until delivery has actually been measured from a
-  // real browser with a blocker enabled. Desktop telemetry carries no such
-  // caveat. Measuring first is deliberate: adding a tunnel is delivery
-  // infrastructure, and it is not worth building against an unquantified loss.
-  if (kIsWeb) {
-    logger.i("Error logging is enabled (web).");
-    _runWithSentryWeb(runner);
-  } else {
-    logger.i("Error logging is enabled.");
-    _runWithSentry(runner);
-  }
+  runner();
 }

@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart';
-import 'package:version/version.dart';
 
 /// Name of the directory holding the Hive settings boxes, relative to the data
 /// root (or the native documents dir). Shared by `PathInfo.settingsDir` and
@@ -34,13 +33,7 @@ const Set<String> unmanagedDirectoryNames = <String>{sentryNativeDirName};
 class Const {
   static String get moduleUrlRoot => "https://data.umacapture.com/umacapture";
 
-  static String get appUrlRoot => "https://github.com/umasagashi/umacapture/releases/latest/download";
-
-  static String get newsUrl => "$moduleUrlRoot/news.md";
-
   static String get moduleVersionInfoUrl => "$moduleUrlRoot/version_info.json";
-
-  static String get sentryRateLimitConfigUrl => "$moduleUrlRoot/sentry_rate_limit.json";
 
   static String get moduleZipName => "modules.zip";
 
@@ -51,25 +44,10 @@ class Const {
   /// checks the bytes against that reference, which a fixed name cannot carry.
   static String get moduleZipAliasUrl => "$moduleUrlRoot/$moduleZipName";
 
-  static String get appVersionInfoUrl => "$appUrlRoot/version_info.json";
-
-  static String appExeUrl({required Version version}) => "$appUrlRoot/umacapture-v${version.toString()}-windows.exe";
-
-  static String appZipUrl({required Version version}) => "$appUrlRoot/umacapture-v${version.toString()}-windows.zip";
-
-  /// The project's public home, and the two places its users talk to each other.
-  ///
-  /// The same three the README publishes under "Community". Kept here rather than beside the card that
-  /// links to them, next to [appUrlRoot] which addresses the same repository.
-  static String get githubUrl => "https://github.com/umasagashi/umacapture";
-
-  static String get discordUrl => "https://discord.gg/Ph9hEGHR4M";
-
-  static String get xUrl => "https://x.com/umasagashi";
+  /// The fork repository; upstream legal attribution is retained in README/LICENSE.
+  static String get githubUrl => "https://github.com/The-team-seomin3/umacapture";
 
   static RegExp get uninstallerPattern => RegExp(r"unins[0-9]+\.exe");
-
-  static Uri get sentrySampleUrl => Uri.parse("$moduleUrlRoot/sentry_sample.json");
 }
 
 class CurrentPlatform {

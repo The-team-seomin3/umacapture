@@ -30,7 +30,6 @@ import '/src/core/utils.dart';
 // spelling for "unstated".
 import '/src/core/video_import_ops.dart';
 import '/src/gui/toast.dart';
-import '/src/preference/storage_box.dart';
 
 part 'version_check.mapper.dart';
 
@@ -1418,6 +1417,13 @@ Future<void> _extractModuleArchiveTo(
   logger.i("Stored $jsonCount JSON + $onnxCount ONNX file(s) into OPFS at ${modulesDir.path}");
 }
 
+/// Retains only a readable installed module whose application requirement is met.
+ModuleVersion? compatibleInstalledModule(ModuleVersionRawData? local, Version appVersion) {
+  final required = local?.applicationVersion.toVersionOrNull();
+  if (required == null || required > appVersion) return null;
+  return local?.toModuleVersion();
+}
+
 final moduleVersionLoader = FutureProvider<ModuleVersion?>((ref) async {
   // Web has no desktop-style auto-updater (no dart:io FS, no on-disk zip
   // extraction). Instead it bootstraps the module data into OPFS once from the
@@ -1470,10 +1476,12 @@ final moduleVersionLoader = FutureProvider<ModuleVersion?>((ref) async {
       return local?.toModuleVersion();
     case ModuleUpdateRequiresNewerApp():
       logger.i("Updating the module is disallowed because it does not meet the required app version.");
-      // Intentionally blocked, not failed: the proper fix is an app update
-      // (handled by its own banner), not a manual module install.
-      setUpdateFailed(false);
-      return null;
+      final retained = compatibleInstalledModule(local, appVersion.local);
+      setUpdateFailed(retained == null);
+      if (retained == null) {
+        sendModuleVersionCheckToast(ToastType.error, ModuleVersionCheckResultCode.noVersionAvailable);
+      }
+      return retained;
     case ModuleUpdateAvailable():
       available = verdict;
   }
@@ -1556,14 +1564,6 @@ class AppVersionCheckResult {
 
 enum AppVersionCheckResultCode { noUpdateRequired, newVersionAvailable, latestVersionNotAvailable, accessDenied }
 
-void _sendAppVersionCheckToast(ToastType type, AppVersionCheckResultCode code) {
-  // This function can be called before EasyLocalization is initialized.
-  // For this reason, a delay is required for now.
-  Future.delayed(const Duration(milliseconds: 300), () {
-    Toaster.show(ToastData(type: type, description: "$tr_toast.app_version_check.${code.name.snakeCase}".tr()));
-  });
-}
-
 enum VersionCheckEntryKey { lastAppVersionChecked, latestAppVersion, localAppVersion }
 
 extension StringExtension on String {
@@ -1586,55 +1586,6 @@ extension StringExtension on String {
   }
 }
 
-FutureOr<Version?> _checkLatestAppVersion(Version currentLocalVersion) async {
-  final box = StorageBox(StorageBoxKey.versionCheck);
-  final lastAppVersionCheckedEntry = box.entry<DateTime>(VersionCheckEntryKey.lastAppVersionChecked.name);
-  final latestAppVersionEntry = box.entry<String>(VersionCheckEntryKey.latestAppVersion.name);
-  final localAppVersionEntry = box.entry<String>(VersionCheckEntryKey.localAppVersion.name);
-
-  final hasExpired = lastAppVersionCheckedEntry.pull()?.hasExpired(const Duration(hours: 20)) ?? true;
-  // A stored value that no longer parses reads as null here, which fails the
-  // two guards below and sends this through the network check again — the same
-  // path a first run takes. Never as `0.0.0`, which would have passed as a
-  // known-latest smaller than anything and reported "no update available".
-  final knownLocalAppVersion = localAppVersionEntry.pull()?.toVersionOrNull();
-  final knownLatestAppVersion = latestAppVersionEntry.pull()?.toVersionOrNull();
-  logger.d(
-    "last=${lastAppVersionCheckedEntry.pull()}"
-    ", current-local=$currentLocalVersion"
-    ", known-local=$knownLocalAppVersion"
-    ", known-latest=$knownLatestAppVersion"
-    ", hasExpired=$hasExpired",
-  );
-
-  if (!hasExpired && knownLatestAppVersion != null && knownLocalAppVersion == currentLocalVersion) {
-    return knownLatestAppVersion;
-  }
-
-  try {
-    lastAppVersionCheckedEntry.push(DateTime.now());
-    localAppVersionEntry.push(currentLocalVersion.toString());
-    latestAppVersionEntry.delete();
-    final latest = await createDiagnosticDio(
-      operation: "check_latest_app_version",
-    ).get(Const.appVersionInfoUrl).then((response) => Version.parse(jsonDecode(response.toString())['version']));
-    latestAppVersionEntry.push(latest.toString());
-    logger.d("latest=$latest");
-    return latest;
-  } catch (exception, stackTrace) {
-    await logNetworkException(
-      operation: "check_latest_app_version",
-      exception: exception,
-      stackTrace: stackTrace,
-      url: Const.appVersionInfoUrl,
-    );
-    if (_isAccessDeniedError(exception)) {
-      _sendAppVersionCheckToast(ToastType.error, AppVersionCheckResultCode.accessDenied);
-    }
-    return null;
-  }
-}
-
 Future<Version> loadLocalAppVersion() async {
   return rootBundle.loadString("assets/version_info.json").then((info) => Version.parse(jsonDecode(info)['version']));
 }
@@ -1643,25 +1594,8 @@ final localAppVersionLoader = FutureProvider<Version>((ref) async {
   return loadLocalAppVersion();
 });
 
+/// Local version only: this fork has no application release service.
 final appVersionCheckLoader = FutureProvider<AppVersionCheckResult>((ref) async {
   final local = await ref.watch(localAppVersionLoader.future);
-  // No self-update on web: skip the network check (and the dart:io Platform
-  // reads in its failure path) and report the local version as current.
-  // (Minimal boot guard; the full version_check web treatment is stage 3.)
-  if (kIsWeb) {
-    return AppVersionCheckResult(local: local, latest: local);
-  }
-  final latest = await _checkLatestAppVersion(local);
-  logger.i("App version: local=$local, latest=$latest");
-
-  if (latest == null) {
-    _sendAppVersionCheckToast(ToastType.warning, AppVersionCheckResultCode.latestVersionNotAvailable);
-    return AppVersionCheckResult(local: local, latest: local, hasError: true);
-  }
-
-  final result = AppVersionCheckResult(local: local, latest: latest);
-  if (result.isUpdatable) {
-    _sendAppVersionCheckToast(ToastType.info, AppVersionCheckResultCode.newVersionAvailable);
-  }
-  return result;
+  return AppVersionCheckResult(local: local, latest: local);
 });

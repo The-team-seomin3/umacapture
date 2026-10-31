@@ -2246,6 +2246,7 @@
         }
     },
     "common": {
+        "fork_feature_unavailable": "이 포크에서는 사용할 수 없습니다",
         "under_construction": "개발 중",
         "hold_to_confirm_hint": "길게 눌러 결정합니다",
         "experimental_warning": "이 기능은 실험적입니다. 저장한 내용은 향후 버전 업데이트에서 사용하지 못할 수 있습니다.",

@@ -10,9 +10,7 @@ import '/src/chara_detail/spec/base.dart';
 import '/src/chara_detail/spec/loader.dart';
 import '/src/chara_detail/storage.dart';
 import '/src/core/path_entity.dart';
-import '/src/core/sentry_util.dart';
 import '/src/core/utils.dart';
-import '/src/gui/chara_detail/report_record_dialog.dart';
 import '/src/gui/common.dart';
 import '/src/gui/record_image.dart';
 
@@ -527,17 +525,17 @@ class _CharaDetailPreviewDialogState extends ConsumerState<CharaDetailPreviewDia
                   },
                 ),
               ),
-            if (isSentryAvailable() && effectiveOverlay) ...[
+            if (effectiveOverlay) ...[
               const SizedBox(width: 8),
               Tooltip(
                 message: "$tr_preview.dialog.report_button.tooltip".tr(),
                 child: OutlinedButton.icon(
                   icon: const Icon(Symbols.report_rounded),
-                  label: Text("$tr_preview.dialog.report_button.label".tr()),
-                  onPressed: () {
-                    CardDialog.dismiss(ref.base);
-                    ReportRecordDialog.show(ref.base, widget.recordDirs[currentIdx], over: widget.over);
-                  },
+                  label: Text(
+                    "$tr_preview.dialog.report_button.label".tr(),
+                    style: const TextStyle(decoration: TextDecoration.lineThrough),
+                  ),
+                  onPressed: null,
                 ),
               ),
             ],

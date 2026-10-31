@@ -2246,6 +2246,7 @@
         }
     },
     "common": {
+        "fork_feature_unavailable": "このフォークでは利用できません",
         "under_construction": "開発中",
         "hold_to_confirm_hint": "長押しで決定します",
         "experimental_warning": "この機能は実験的です。保存した内容は今後のバージョンアップで利用できなくなる可能性があります。",

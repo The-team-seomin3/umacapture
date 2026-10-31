@@ -114,7 +114,7 @@ const nestedSegmentExemptions = <({String file, String base, String segment})>{
 /// The segment is a string literal without interpolation, or an identifier bound
 /// to one by a `const` — the same file's `const`s first, then the top-level
 /// `const`s of every file under `lib/`, so a name deliberately shared (as
-/// [settingsBoxDirName] and [sentryNativeDirName] are) is read as the literal it
+/// [settingsBoxDirName] is) is read as the literal it
 /// is. Only top-level declarations are shared: a class member's name is often
 /// generic enough to collide with an unrelated identifier used as a path segment
 /// (`static const name = 'SettingsRoute'` in the generated router against
@@ -304,12 +304,15 @@ void main() {
       expect(joins, isNotEmpty);
       final segments = joins.map((join) => join.segment).toSet();
       expect(segments, containsAll(<String>['active', 'archive', 'quarantine', 'retired', 'chara_detail']));
-      // The `join(...)` construction as well as `/`, and a name held in a
-      // constant another file declares. Neither shows up in the accountability
-      // test below once the name is accounted for — so without these two lines,
-      // the extractor could stop reading either and nothing would fail.
-      expect(segments, contains(sentryNativeDirName));
-      expect(segments, contains(settingsBoxDirName));
+      // The remaining join(dataRoot, settingsBoxDirName) construction in storage_box.dart
+      // exercises join(...) and a constant declared in another file together. Checking that
+      // source specifically keeps the '/' expression for PathInfo.settingsDir from masking
+      // a broken join extractor. The fork no longer creates a Sentry database directory.
+      expect(
+        joins.where((join) => join.file == 'storage_box.dart' && join.base == 'dataRoot').map((join) => join.segment),
+        contains(settingsBoxDirName),
+      );
+      expect(segments, isNot(contains(sentryNativeDirName)));
       // Both halves of the partition are populated, or one of the two branches
       // below would be asserting over nothing.
       expect(joins.where((join) => join.onDerivedBase), isNotEmpty);

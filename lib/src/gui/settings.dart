@@ -4,13 +4,11 @@ import 'package:auto_route/auto_route.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pasteboard/pasteboard.dart';
 import 'package:recase/recase.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '/const.dart';
 import '/src/chara_detail/storage.dart';
@@ -42,7 +40,6 @@ import '/src/gui/theme_extensions.dart';
 import '/src/gui/theme_gallery.dart';
 import '/src/gui/video_import.dart';
 import '/src/preference/notifier.dart';
-import '/src/preference/privacy_setting.dart';
 
 // ignore: constant_identifier_names
 const tr_settings = "pages.settings";
@@ -619,36 +616,26 @@ class SystemGroup extends ConsumerWidget {
   }
 }
 
-class PrivacySettingsGroup extends ConsumerWidget {
+class PrivacySettingsGroup extends StatelessWidget {
   const PrivacySettingsGroup({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    return ListCard(
+  Widget build(BuildContext context) => UnavailableFeature(
+    child: ListCard(
       title: "$tr_settings.privacy.title".tr(),
       padding: EdgeInsets.zero,
       children: [
-        SwitchWidget(
-          title: Text("$tr_settings.privacy.allow_post_user_data.title".tr()),
-          description: RichText(
-            text: TextSpan(
-              style: theme.textTheme.bodyMedium!.copyWith(color: theme.colorScheme.onSurfaceVariant),
-              children: [
-                TextSpan(text: "$tr_settings.privacy.allow_post_user_data.description".tr()),
-                TextSpan(
-                  text: "$tr_settings.privacy.allow_post_user_data.sample_link".tr(),
-                  style: const TextStyle(decoration: TextDecoration.underline),
-                  recognizer: TapGestureRecognizer()..onTap = () => launchUrl(Const.sentrySampleUrl),
-                ),
-              ],
-            ),
+        ListTile(
+          title: Text(
+            "$tr_settings.privacy.allow_post_user_data.title".tr(),
+            style: const TextStyle(decoration: TextDecoration.lineThrough),
           ),
-          provider: allowPostUserDataStateProvider,
+          subtitle: Text("common.fork_feature_unavailable".tr()),
+          trailing: const Align(widthFactor: 1, child: Switch(value: false, onChanged: null)),
         ),
       ],
-    );
-  }
+    ),
+  );
 }
 
 class _LicenseMaterialLocalizationsDelegate extends LocalizationsDelegate<MaterialLocalizations> {

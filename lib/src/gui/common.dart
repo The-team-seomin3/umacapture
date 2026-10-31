@@ -9,7 +9,6 @@ import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '/src/core/sentry_util.dart';
 import '/src/core/utils.dart';
 import '/src/gui/toast.dart';
 
@@ -380,6 +379,25 @@ class _IntStepperFieldState extends State<IntStepperField> {
       ],
     );
   }
+}
+
+/// Keeps retired fork features in their existing layout without allowing activation.
+class UnavailableFeature extends StatelessWidget {
+  final Widget child;
+  const UnavailableFeature({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    enabled: false,
+    child: Disabled(
+      disabled: true,
+      tooltip: "common.fork_feature_unavailable".tr(),
+      child: DefaultTextStyle.merge(
+        style: const TextStyle(decoration: TextDecoration.lineThrough),
+        child: child,
+      ),
+    ),
+  );
 }
 
 /// Greys [child] out and withdraws it from the pointer and the keyboard while [disabled], with
@@ -1007,7 +1025,7 @@ class ExperimentalBanner extends StatelessWidget {
 }
 
 void showFeedbackDialog(BuildContext context) {
-  BetterFeedback.of(context).show(captureFeedback());
+  // Retained entry point; this fork cannot open a reporting overlay.
 }
 
 class _CustomFeedbackLocalizations implements FeedbackLocalizations {

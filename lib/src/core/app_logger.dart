@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logger/logger.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
 
 final _consoleLogger = Logger(
   level: kDebugMode ? Level.trace : Level.info,
@@ -18,53 +17,13 @@ final _consoleLogger = Logger(
   ),
 );
 
-SentryLevel _toSentryLevel(Level level) {
-  switch (level) {
-    case Level.trace:
-    case Level.debug:
-      return SentryLevel.debug;
-    case Level.info:
-      return SentryLevel.info;
-    case Level.warning:
-      return SentryLevel.warning;
-    case Level.error:
-      return SentryLevel.error;
-    case Level.fatal:
-      return SentryLevel.fatal;
-    default:
-      return SentryLevel.info;
-  }
-}
-
-/// Where an assembled breadcrumb goes. See [debugBreadcrumbSink].
+/// Where an assembled breadcrumb goes. Replaced only by local test spies.
 typedef BreadcrumbSink = void Function(Level level, String message, dynamic error);
 
-/// The real sink: Sentry's breadcrumb ring, which rides along with every event this app sends.
-void _sentryBreadcrumbSink(Level level, String message, dynamic error) {
-  // A hub that was never initialised (a test, a build with no DSN) has nowhere to put this.
-  if (!HubAdapter().isEnabled) return;
-  Sentry.addBreadcrumb(
-    Breadcrumb(
-      message: message,
-      level: _toSentryLevel(level),
-      category: 'log',
-      timestamp: DateTime.now().toUtc(),
-      data: error == null ? null : {'error': error.toString()},
-    ),
-  );
-}
+void _sentryBreadcrumbSink(Level level, String message, dynamic error) {}
 
-/// The sink [AppLogger] hands finished breadcrumbs to. **Replaced by tests, never in production.**
-///
-/// A seam rather than a direct call because the boundary it names is the one that matters for
-/// privacy: **every** `logger.d/i/w/e/wtf` line becomes a breadcrumb, and a breadcrumb leaves the
-/// machine with the next event. Which strings are allowed through that boundary is therefore a
-/// property a test has to be able to observe — and without this seam it cannot, because
-/// `Sentry.addBreadcrumb` silently does nothing when no hub is running, so a suite would assert
-/// against an empty list and pass no matter what the code logged.
-///
-/// See `test/video_import_breadcrumb_privacy_test.dart`, which drives the real import front end and
-/// asserts the user's clip name reaches no breadcrumb by any route.
+/// Local spy seam for the retained diagnostic redaction tests.
+/// The production sink is inert; local console logging is independent of this seam.
 @visibleForTesting
 BreadcrumbSink debugBreadcrumbSink = _sentryBreadcrumbSink;
 
@@ -267,18 +226,8 @@ class AppLogger {
     }
   }
 
-  /// Assembles one breadcrumb and hands it to [debugBreadcrumbSink].
-  ///
-  /// **This is the only place a breadcrumb is built**, so it is where the filesystem scrub belongs:
-  /// every `logger.d/i/w/e/wtf` line in the app reaches Sentry through here, and there are of the
-  /// order of forty that interpolate an absolute path. Scrubbing here covers all of them without
-  /// editing one, and covers the ones written after this too — which is the only version of this fix
-  /// that stays true, since a list of call sites is out of date the moment someone adds a log line.
-  ///
-  /// **Both arguments are scrubbed, because both are sent.** [_sentryBreadcrumbSink] serialises
-  /// `error.toString()` into the breadcrumb's `data`, and a `FileSystemException`'s `toString` quotes
-  /// the absolute path it failed on. The scrubbed text is passed *in place of* the object so the
-  /// seam a test observes carries exactly what would be sent, rather than the object it came from.
+  /// Redacts diagnostic text before handing it to the local test seam.
+  /// Both the message and error text are scrubbed; the production sink sends nothing.
   void _addBreadcrumb(Level level, dynamic message, dynamic error) {
     final String text;
     final String? detail;

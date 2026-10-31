@@ -36,16 +36,7 @@ final _downloadProgressProvider = settableNotifierProvider<Progress?>(null);
 
 /// Loads the announcement markdown. Public (with [NewsGroup]) only so a test can
 /// override it; nothing outside this library watches it.
-final newsMarkdownLoader = FutureProvider<String>((ref) async {
-  try {
-    final response = await createDiagnosticDio(operation: "load_news").get(Const.newsUrl);
-    return response.toString();
-  } catch (error, stackTrace) {
-    logger.e("Failed to load news.", error, stackTrace);
-    captureException(error, stackTrace);
-    rethrow;
-  }
-});
+final newsMarkdownLoader = FutureProvider<String>((ref) async => "");
 
 /// Which artefact an app-update download is supposed to be.
 ///
@@ -267,74 +258,10 @@ class AppUpdaterGroup extends ConsumerWidget {
     return (trimmed.length <= limit ? trimmed : "${trimmed.substring(0, limit)}...") + target;
   }
 
-  void downloadAndOpen(WidgetRef ref) {
-    // Capture the (top-level, non-autoDispose) provider objects before the async chain so the deferred
-    // callbacks never touch the build-phase WidgetRef after this card is disposed (e.g. tab switch).
-    final progress = ref.read(_downloadProgressProvider.notifier);
-    final pathInfo = ref.read(pathInfoProvider);
-    progress.set(Progress(count: 0, total: 100));
-    ref
-        .read(isInstallerModeLoader.future)
-        .then((isInstallerMode) async {
-          final downloadUrl = isInstallerMode ? Const.appExeUrl(version: version) : Const.appZipUrl(version: version);
-          final String fileName = Uri.parse(downloadUrl).pathSegments.last;
-          final FilePath downloadPath = pathInfo.downloadDir.filePath(fileName);
-          // Stream into a sibling temp file and rename on success, so an aborted
-          // transfer never leaves a truncated executable under the real name for
-          // the user to run. Sibling, not tempDir: a rename cannot cross volumes.
-          final FilePath incompletePath = pathInfo.downloadDir.filePath("$fileName.part");
-          logger.d("Downloading the app update from $downloadUrl to ${downloadPath.path}");
-          // Always discard a previous artifact rather than reusing it: its
-          // provenance is unknown (it may be a truncated or tampered-with file
-          // from an earlier run). Deleting up front also surfaces a locked
-          // destination here, before spending a 50 MB transfer that could only
-          // fail at the rename. Async variants: a locked file makes the delete
-          // retry, and the sync retry would stall the UI isolate.
-          await downloadPath.delete(emptyOk: true);
-          await incompletePath.delete(emptyOk: true);
-          return createDiagnosticDio(operation: "download_app_update")
-              .download(
-                downloadUrl,
-                incompletePath.path,
-                onReceiveProgress: (int count, int total) {
-                  progress.set(Progress(count: count, total: total));
-                },
-              )
-              .then((_) async {
-                // Refuse a response that is not the artefact this branch is
-                // about to hand to the OS, before it is renamed into place: a
-                // 200 carrying a portal login page or a truncated transfer
-                // would otherwise be executed. Shape only -- see
-                // [requireAppUpdatePayload] for what this does not buy.
-                await requireAppUpdatePayload(
-                  incompletePath,
-                  isInstallerMode ? AppUpdatePayloadKind.installer : AppUpdatePayloadKind.archive,
-                );
-                await incompletePath.rename(downloadPath);
-                progress.set(null);
-                return (isInstallerMode ? downloadPath : downloadPath.parent).launch();
-              })
-              .onError<Object>((error, stackTrace) async {
-                // Drop the half-written temp file so an abandoned download does
-                // not strand 50 MB in the user's Downloads folder. Best-effort:
-                // a cleanup failure must not replace the error being reported.
-                try {
-                  await incompletePath.delete(emptyOk: true);
-                } catch (cleanupError) {
-                  logger.w("Failed to remove the incomplete app update download.", cleanupError);
-                }
-                Error.throwWithStackTrace(error, stackTrace);
-              });
-        })
-        .catchError((Object error, StackTrace stackTrace) => reportDownloadFailure(progress, error, stackTrace));
-  }
+  /// Kept inert even if an old internal callback invokes it.
+  void downloadAndOpen(WidgetRef ref) {}
 
-  /// The failure arm of [downloadAndOpen]: logs and reports [error], resets [progress], and shows
-  /// the user the sentence [describeFailure] composed, unwrapped.
-  ///
-  /// The progress reset is what lets the card stop spinning and become tappable again; without it
-  /// a failed download leaves it stuck on the spinner. The failure is logged at error level and sent
-  /// to Sentry so a production failure leaves a trace.
+  /// Legacy local error formatting, retained for isolated payload tests.
   @visibleForTesting
   static void reportDownloadFailure(SettableNotifier<Progress?> progress, Object error, StackTrace stackTrace) {
     logger.e("Failed to download the app update.", error, stackTrace);
@@ -389,20 +316,25 @@ class AppUpdaterGroup extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final downloadProgress = ref.watch(_downloadProgressProvider);
-    return ListCard(
-      title: "$tr_dashboard.app_updater.title".tr(),
-      titleColor: Theme.of(context).semantic.noticeContainer,
-      padding: EdgeInsets.zero,
-      children: [
-        ListTile(
-          title: Text("$tr_dashboard.app_updater.subtitle".tr()),
-          onTap: downloadProgress != null ? null : () => downloadAndOpen(ref),
-        ),
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 200),
-          child: (downloadProgress == null) ? Container() : downloadProgressWidget(context, ref, downloadProgress),
-        ),
-      ],
+    return UnavailableFeature(
+      child: ListCard(
+        title: "$tr_dashboard.app_updater.title".tr(),
+        titleColor: Theme.of(context).semantic.noticeContainer,
+        padding: EdgeInsets.zero,
+        children: [
+          ListTile(
+            title: Text(
+              "$tr_dashboard.app_updater.subtitle".tr(),
+              style: const TextStyle(decoration: TextDecoration.lineThrough),
+            ),
+            onTap: null,
+          ),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: (downloadProgress == null) ? Container() : downloadProgressWidget(context, ref, downloadProgress),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -442,12 +374,8 @@ class ModuleUpdaterGroup extends ConsumerWidget {
 class AboutGroup extends StatelessWidget {
   const AboutGroup({super.key});
 
-  /// The three destinations, in the order they are listed.
-  static final links = <({String label, String url})>[
-    (label: "GitHub", url: Const.githubUrl),
-    (label: "Discord", url: Const.discordUrl),
-    (label: "X", url: Const.xUrl),
-  ];
+  /// The active fork support destination.
+  static final links = <({String label, String url})>[(label: "GitHub", url: Const.githubUrl)];
 
   /// One bullet: the service's name, then its address as an ordinary web link.
   ///
@@ -528,13 +456,7 @@ class AboutGroup extends StatelessWidget {
   }
 }
 
-/// The announcement card.
-///
-/// The fetch is a plain cross-origin GET, which the browser can refuse for
-/// reasons the app cannot see or fix (the news origin's CORS headers), so the
-/// card is kept on every platform and says that loading failed instead of
-/// rendering an empty body that reads as "no announcements". Hiding it on web
-/// would trade one silent state for another.
+/// Retained announcement layout; this fork does not fetch upstream news.
 class NewsGroup extends ConsumerWidget {
   const NewsGroup({super.key});
 
@@ -562,7 +484,7 @@ class NewsGroup extends ConsumerWidget {
           // what the user needs here is that the card is empty because the fetch
           // failed, not because there is nothing to announce.
           error: (error, _) => text("$tr_dashboard.news.fetch_failed".tr()),
-          data: (data) => markdown(data),
+          data: (data) => text("common.fork_feature_unavailable".tr()),
         ),
       ],
     );
@@ -706,21 +628,18 @@ class DashboardPage extends ConsumerWidget {
         // build that most needs it -- its module lives in OPFS, which the
         // browser may evict, and a failed re-fetch is otherwise invisible.
         if (moduleUpdateFailed) const ModuleUpdaterGroup(),
-        // The app updater additionally shell-launches what it downloaded, so it
-        // is gated on the reveal capability rather than on `!kIsWeb`: the same
-        // predicate every other launch affordance uses.
-        if (CurrentPlatform.canRevealInFileManager() && (result?.isUpdatable ?? false))
-          AppUpdaterGroup(version: result!.latest),
+        // Keep the retired desktop updater in place as a locked placeholder.
+        if (CurrentPlatform.canRevealInFileManager()) AppUpdaterGroup(version: result?.local ?? Version(0, 0, 0)),
         // UNDER THE TWO NOTICES, NOT ABOVE THEM. Both of those ask the user to do something before
         // the app can work at all — most sharply the module one, which on web means recognition is
         // unavailable until it is dealt with — while this card says the same thing whenever it is
         // read. So on the rare launch where a notice is up, the notice keeps the top.
         //
         // Gated here rather than inside [AboutGroup] so that the card, which is a fixed sentence
-        // and three links, stays renderable by a widget test on the VM; `CurrentPlatform.isWeb()`
+        // and fork link, stays renderable by a widget test on the VM; `CurrentPlatform.isWeb()`
         // is const false there, and a self-gating widget would answer an empty box to every test.
         if (CurrentPlatform.isWeb()) const AboutGroup(),
-        const NewsGroup(),
+        const UnavailableFeature(child: NewsGroup()),
         const StatisticGroup(),
       ],
     );

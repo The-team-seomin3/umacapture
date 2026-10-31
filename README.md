@@ -1,11 +1,10 @@
-<div align="center"><img src="https://raw.githubusercontent.com/umasagashi/umacapture/develop/logo.png" width="400" alt="umacapture_logo"/></div>
+<div align="center"><img src="logo.png" width="400" alt="umacapture_logo"/></div>
 
 # umacapture
 
 <div align="center">
 
-[![release](https://img.shields.io/github/v/release/umasagashi/umacapture)](https://github.com/umasagashi/umacapture/releases/latest)
-[![License](https://img.shields.io/github/license/umasagashi/umacapture)](LICENSE)
+[![License](https://img.shields.io/github/license/The-team-seomin3/umacapture)](LICENSE)
 ![platform](https://img.shields.io/badge/platform-Windows-blue)
 
 </div>
@@ -41,9 +40,11 @@ PoC/MVP development guidance: [AGENTS.md](AGENTS.md), with links to contracts, t
 
 ## Community
 
-Discord: https://discord.gg/Ph9hEGHR4M [Japanese/日本語]
+Fork issues: https://github.com/The-team-seomin3/umacapture/issues
 
-X: https://x.com/umasagashi
+This fork derives from [umasagashi/umacapture](https://github.com/umasagashi/umacapture). Upstream attribution and MIT notices are retained.
+
+Reporting and application updates are disabled; their existing controls remain crossed out and locked. See [fork network policy](docs/fork-network-policy.md) for permitted module downloads and validation limits.
 
 ## Licence
 
