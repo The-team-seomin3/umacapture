@@ -2,10 +2,17 @@
 
 ## Setup and build
 
-Check the required inputs before the task: Windows/Korean client access for live
-capture, real Korean material/models for recognition, and an identified consumer
-for JSON compatibility. Source inspection can proceed without runtime access;
-missing tools or data are Not Tested, not permission to install or fabricate them.
+Start with the [current workflow and delivery status](../implementation-status.md).
+For #5 reuse authorized saved capture/record/geometry and pinned OCR/master/module
+inputs; native capture changes or live game access are not required for this offline
+path. Its uncommitted tool and README are reached through the issue handoff, not an
+absent file in this baseline. The commands below describe existing native tooling,
+not a Korean postprocessor installation procedure.
+
+Check inputs for the actual task. Source inspection can proceed without runtime
+access; missing tools or data are Not Tested, not permission to install or fabricate
+them. The current owner boundary excludes agent-direct game capture/control and
+anti-cheat probing; existing live CLI commands do not override it.
 
 Native CLI builds require Windows MSVC/CMake/Ninja and provisioned OpenCV/ONNX/FFmpeg.
 Use [tool/fetch_deps.py](../../tool/fetch_deps.py) for current hash-pinned dependency
@@ -70,10 +77,10 @@ resolve assets/models/output relative to that directory. Read current options in
 
 | Task | CLI entry / meaningful result |
 | --- | --- |
-| #2 raw factor screenshot | `screenshot --output <private.png>`; inspect actual full pixels and save outcome, no recognition loop |
+| Separately authorized raw screenshot investigation | `screenshot --output <private.png>`; inspect actual full pixels and save outcome, no recognition loop |
 | #3 recorded input | `video --video_path_list <clip>`; or `replay --record <ffv1.mkv>` for full recorded frames |
 | #3 isolated pipeline stages | `stitch --id <uuid>`, `recognize --id <uuid>`; use isolated record copies, since predictions are rewritten |
-| Authorized live investigation | `capture [--record <private.mkv>] [--duration <seconds>] [--stop-file <path>]`; graceful stop finalizes recordings |
+| Separately owner-authorized live investigation | `capture [--record <private.mkv>] [--duration <seconds>] [--stop-file <path>]`; graceful stop finalizes recordings |
 | Builder changes | `build --assets_dir <dir>`; use throwaway output for smoke work and tracked assets only for intended regeneration |
 
 Offline pipeline commands accept absolute `--assets_dir`, `--modules_dir`,

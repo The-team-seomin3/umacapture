@@ -2,6 +2,10 @@
 
 Issue: https://github.com/The-team-seomin3/umacapture/issues/10
 
+Source localization was merged in [PR #12](https://github.com/The-team-seomin3/umacapture/pull/12).
+See [implementation status](implementation-status.md) for the distinction between
+merged UI code, local Windows packaging and remaining native acceptance.
+
 ## Startup and resources
 
 Windows desktop starts in Korean. Both the normal application and the app-instance
@@ -71,7 +75,37 @@ visually reviewed. See the [image report](validation/korean-ui-preview/README.md
 The review exposed and corrected toast foreground contrast and missing Korean
 spacing before a settings link. Local contrast/Korean/storage tests pass 52/52.
 
-This is production-widget evidence with synthetic providers, not a native Windows
-application run. Full native window/OS dialog/DPI/lifecycle and populated-record
-visual checks remain Not Tested; keep the issue open for the #11 handoff.
-No Windows binary or ZIP is delivered by this issue. Use the PR for current CI status.
+These previews are production-widget evidence with synthetic providers; their
+historical [image report](validation/korean-ui-preview/README.md) remains unchanged.
+They do not by themselves establish native Windows behavior.
+
+## Subsequent native Windows evidence — 2026-10-31
+
+The [initial #11 package result](https://github.com/The-team-seomin3/umacapture/issues/11#issuecomment-6541108516)
+and [return handoff to #10](https://github.com/The-team-seomin3/umacapture/issues/10#issuecomment-6541112643)
+report a fresh Release build from the historical pre-migration source `d2f69e6`
+plus the CMake runtime-bundling fix. First-launch executable path/PID/hash and selected
+Korean dashboard/capture/empty-record/settings/dialog states were verified.
+That initial smoke used telemetry-deny fixtures; restart and narrow acceptance were
+not tested at that time.
+
+[PR #19's later integrated report](https://github.com/The-team-seomin3/umacapture/blob/39590f2778a040f3da42807775885e61caa43b14/docs/validation/windows-isolation-integration-2026-10-31.md)
+supersedes those restart/narrow gaps for its tested source: the complete #15-isolated
+Release ZIP was extracted, launched and normally restarted with EXE/AOT provenance
+and fixture preservation checks. Selected native Korean navigation/stopped-capture/
+settings and disabled reporting/updater controls were inspected, including a requested
+640x700 window and light/dark settings. Required first-run Japanese modules downloaded
+and installed. This is bounded native execution evidence, separate from the widget
+preview matrix; it is not a Korean game-recognition test.
+
+Full page/dialog/DPI, populated-record/game workflows and native accessibility/
+keyboard acceptance remain incomplete. Accessibility inspection logged AXTree errors;
+the report records that limitation. No game capture or real user-record workflow
+was exercised. App-PID TCP observations are bounded and do not establish a complete
+network audit. Later #18 test-only corrections do not become new binary evidence.
+
+#10/#11 remain open for their acceptance remainder. #18's source isolation is merged;
+#19's packaging changes remain in an open PR. #19 publishes instructions and reports;
+the ZIP remains
+local and no public fork binary release is established. Use each current PR for
+its HEAD/check status, and the pinned reports for historical execution evidence.
