@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 // ignore: depend_on_referenced_packages
@@ -16,6 +15,7 @@ import 'package:umacapture/src/core/storage/unclassified_scan.dart';
 import 'package:umacapture/src/gui/storage_delete_action.dart';
 import 'package:umacapture/src/gui/storage_tree.dart';
 
+import 'support/localization.dart';
 import 'support/source_syntax.dart';
 import 'support/virtual_tree_fs_backend.dart';
 
@@ -567,114 +567,114 @@ void main() {
     });
   });
 
-  group('every string the groups name exists in the one translation file', () {
-    late Map<String, dynamic> translations;
+  for (final localeFile in appLocaleFiles()) {
+    group('storage translations in $localeFile', () {
+      late Map<String, dynamic> translations;
 
-    setUp(() {
-      // `assets/translations/` holds ja.json and nothing else; there is no second
-      // locale to fall out of step with.
-      expect(Directory('assets/translations').listSync().map((e) => e.uri.pathSegments.last), ['ja.json']);
-      translations = jsonDecode(File('assets/translations/ja.json').readAsStringSync()) as Map<String, dynamic>;
-    });
+      setUp(() {
+        // Every shipped locale must provide the storage view's keys and arguments.
+        translations = localeJson(localeFile);
+      });
 
-    test('the view title is there, and a key that is not there reads as missing', () {
-      expect(lookupTranslation(translations, 'pages.storage.title'), isA<String>());
-      // Negative control: a lookup that answered "found" for everything would
-      // make the check below pass against an empty file.
-      expect(lookupTranslation(translations, 'pages.storage.group.no_such_group.delete_warning'), isNull);
-      expect(lookupTranslation(translations, 'pages.storage.title.deeper'), isNull);
-    });
+      test('the view title is there, and a key that is not there reads as missing', () {
+        expect(lookupTranslation(translations, 'pages.storage.title'), isA<String>());
+        // Negative control: a lookup that answered "found" for everything would
+        // make the check below pass against an empty file.
+        expect(lookupTranslation(translations, 'pages.storage.group.no_such_group.delete_warning'), isNull);
+        expect(lookupTranslation(translations, 'pages.storage.title.deeper'), isNull);
+      });
 
-    test('no group has a missing label, description or delete warning', () {
-      final missing = <String>[];
-      for (final group in storageGroups) {
-        for (final key in <String?>[group.labelKey, group.descriptionKey, group.deleteWarningKey]) {
-          if (key == null) {
-            continue;
-          }
-          expect(key, startsWith('pages.storage.'), reason: '${group.id} left the namespace of this view');
-          if (lookupTranslation(translations, key) is! String) {
-            missing.add(key);
+      test('no group has a missing label, description or delete warning', () {
+        final missing = <String>[];
+        for (final group in storageGroups) {
+          for (final key in <String?>[group.labelKey, group.descriptionKey, group.deleteWarningKey]) {
+            if (key == null) {
+              continue;
+            }
+            expect(key, startsWith('pages.storage.'), reason: '${group.id} left the namespace of this view');
+            if (lookupTranslation(translations, key) is! String) {
+              missing.add(key);
+            }
           }
         }
-      }
-      expect(missing, isEmpty);
-    });
+        expect(missing, isEmpty);
+      });
 
-    test("every group names a description key in this view's namespace", () {
-      // The keys themselves, not their contents: the sentences are asserted where
-      // they are shown (`storage_tree_test.dart`), and what belongs here is that
-      // each group asks for its *own* description rather than sharing one — the
-      // failure a single mistyped `_descriptionKey('temp')` would produce.
-      final keys = [for (final group in storageGroups) group.descriptionKey];
-      expect(keys.toSet(), hasLength(12));
-      for (final group in storageGroups) {
-        expect(group.descriptionKey, startsWith('pages.storage.group.'));
-        expect(group.descriptionKey, endsWith('.description'));
-        // And it is a *different* string from the group's delete warning, which
-        // is the whole point of adding the field rather than reusing that one.
-        expect(group.descriptionKey, isNot(group.deleteWarningKey));
-      }
-    });
-
-    test('every {…} placeholder under pages.storage.* is one this view already fills in', () {
-      // Literal, not derived: counted by hand against ja.json. It pins *which*
-      // keys carry a placeholder, and that is all it can see — the set is
-      // unchanged by renaming `{name}` to `{title}`, and nothing here looks at a
-      // call site.
-      //
-      //
-      // `zip.too_large` is **not** here: the approved sentence names neither the
-      // size nor the limit, so it carries no placeholder, and `zip_export_web.dart`
-      // passes it no `namedArgs`. Listing the key anyway would make this test
-      // demand a placeholder the wording does not have.
-      //  * `{name}` in delete.target, `{count}` in delete.completed,
-      //    `{total}`/`{deleted}`/`{cause}` in delete.partial and `{cause}` in
-      //    delete.none (the confirmation dialog, and the sentence reporting what
-      //    the delete actually removed), filled
-      //    by `storage_delete_action.dart` — the confirmation dialog (through
-      //    `storageDeleteTargetSentence`) and `storageDeleteOutcomeMessage`.
-      //    `storage_delete_action_test.dart` compares the *outcome* sentences —
-      //    completed, partial, none — against the interpolated `ja.json`
-      //    literal, so a missing namedArgs in those three is red there as well
-      //    as here. It never renders `delete.target`, and nothing holds the
-      //    placeholder *names* of all five.
-      //  * `{activity}` / `{action}` in blocked.template (the refusal shown while
-      //    a capture or a video import is writing into the group),
-      //    filled by `storageActionBlockedMessage` in
-      //    `storage_action_blocker.dart` from two further keys of its own.
-      //  * `{record}` / `{reason}` in delete.recovery_incomplete and `{reason}` in
-      //    delete.recovery_incomplete_unidentified (the survivor row for a
-      //    transaction slot recovery could not empty, which the delete declines to
-      //    remove), filled by `storageRecoveryIncompleteDetail` in
-      //    `core/storage/storage_delete.dart`. Two keys and not one because the
-      //    record id is absent whenever the sweep could not read the slot's
-      //    manifest; which is rendered is decided there.
-      const expectedPlaceholderKeys = {
-        'pages.storage.blocked.template',
-        'pages.storage.delete.target',
-        'pages.storage.delete.completed',
-        'pages.storage.delete.partial',
-        'pages.storage.delete.none',
-        'pages.storage.delete.recovery_incomplete',
-        'pages.storage.delete.recovery_incomplete_unidentified',
-      };
-      final placeholderPattern = RegExp(r'\{[^}]*\}');
-      final found = <String>{};
-      void walk(Object? node, String prefix) {
-        if (node is Map<String, dynamic>) {
-          for (final entry in node.entries) {
-            walk(entry.value, '$prefix.${entry.key}');
-          }
-        } else if (node is String && placeholderPattern.hasMatch(node)) {
-          found.add(prefix);
+      test("every group names a description key in this view's namespace", () {
+        // The keys themselves, not their contents: the sentences are asserted where
+        // they are shown (`storage_tree_test.dart`), and what belongs here is that
+        // each group asks for its *own* description rather than sharing one — the
+        // failure a single mistyped `_descriptionKey('temp')` would produce.
+        final keys = [for (final group in storageGroups) group.descriptionKey];
+        expect(keys.toSet(), hasLength(12));
+        for (final group in storageGroups) {
+          expect(group.descriptionKey, startsWith('pages.storage.group.'));
+          expect(group.descriptionKey, endsWith('.description'));
+          // And it is a *different* string from the group's delete warning, which
+          // is the whole point of adding the field rather than reusing that one.
+          expect(group.descriptionKey, isNot(group.deleteWarningKey));
         }
-      }
+      });
 
-      walk(lookupTranslation(translations, 'pages.storage'), 'pages.storage');
-      expect(found, expectedPlaceholderKeys);
+      test('every {…} placeholder under pages.storage.* is one this view already fills in', () {
+        // Literal, not derived: counted by hand against ja.json. It pins *which*
+        // keys carry a placeholder, and that is all it can see — the set is
+        // unchanged by renaming `{name}` to `{title}`, and nothing here looks at a
+        // call site.
+        //
+        //
+        // `zip.too_large` is **not** here: the approved sentence names neither the
+        // size nor the limit, so it carries no placeholder, and `zip_export_web.dart`
+        // passes it no `namedArgs`. Listing the key anyway would make this test
+        // demand a placeholder the wording does not have.
+        //  * `{name}` in delete.target, `{count}` in delete.completed,
+        //    `{total}`/`{deleted}`/`{cause}` in delete.partial and `{cause}` in
+        //    delete.none (the confirmation dialog, and the sentence reporting what
+        //    the delete actually removed), filled
+        //    by `storage_delete_action.dart` — the confirmation dialog (through
+        //    `storageDeleteTargetSentence`) and `storageDeleteOutcomeMessage`.
+        //    `storage_delete_action_test.dart` compares the *outcome* sentences —
+        //    completed, partial, none — against the interpolated `ja.json`
+        //    literal, so a missing namedArgs in those three is red there as well
+        //    as here. It never renders `delete.target`, and nothing holds the
+        //    placeholder *names* of all five.
+        //  * `{activity}` / `{action}` in blocked.template (the refusal shown while
+        //    a capture or a video import is writing into the group),
+        //    filled by `storageActionBlockedMessage` in
+        //    `storage_action_blocker.dart` from two further keys of its own.
+        //  * `{record}` / `{reason}` in delete.recovery_incomplete and `{reason}` in
+        //    delete.recovery_incomplete_unidentified (the survivor row for a
+        //    transaction slot recovery could not empty, which the delete declines to
+        //    remove), filled by `storageRecoveryIncompleteDetail` in
+        //    `core/storage/storage_delete.dart`. Two keys and not one because the
+        //    record id is absent whenever the sweep could not read the slot's
+        //    manifest; which is rendered is decided there.
+        const expectedPlaceholderKeys = {
+          'pages.storage.blocked.template',
+          'pages.storage.delete.target',
+          'pages.storage.delete.completed',
+          'pages.storage.delete.partial',
+          'pages.storage.delete.none',
+          'pages.storage.delete.recovery_incomplete',
+          'pages.storage.delete.recovery_incomplete_unidentified',
+        };
+        final placeholderPattern = RegExp(r'\{[^}]*\}');
+        final found = <String>{};
+        void walk(Object? node, String prefix) {
+          if (node is Map<String, dynamic>) {
+            for (final entry in node.entries) {
+              walk(entry.value, '$prefix.${entry.key}');
+            }
+          } else if (node is String && placeholderPattern.hasMatch(node)) {
+            found.add(prefix);
+          }
+        }
+
+        walk(lookupTranslation(translations, 'pages.storage'), 'pages.storage');
+        expect(found, expectedPlaceholderKeys);
+      });
     });
-  });
+  }
 
   group('the unclassified bucket is the residue of the app-owned roots', () {
     late Directory root;
