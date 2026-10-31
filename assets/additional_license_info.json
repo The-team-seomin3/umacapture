@@ -1,5 +1,19 @@
 {
-    "disclosure_scope": "Every file the Windows build redistributes (parsed from windows/runner/CMakeLists.txt) is claimed by an entry below. The components listed as 'statically linked into' a file are read from that file's own recorded build information; they are not derived from its code. A prebuilt binary's publisher may also ship notices for components its build information does not name: those are reproduced as published, and each says so in its own line rather than claiming a link. Operating-system redistributables copied out of C:/Windows/System32 are covered by their own redistribution terms and are not listed.",
+    "disclosure_scope": "Every third-party native DLL parsed from windows/runner/CMakeLists.txt is claimed by an entry below. The components listed as 'statically linked into' a file are read from that file's own recorded build information; they are not derived from its code. A prebuilt binary's publisher may also ship notices for components its build information does not name: those are reproduced as published, and each says so in its own line rather than claiming a link. Compiler runtime redistributables discovered by InstallRequiredSystemLibraries are listed separately in runtime_redistributables; their own redistribution terms apply.",
+    "runtime_redistributables": {
+        "source": "MSVC toolchain redistributables (InstallRequiredSystemLibraries)",
+        "inventory": "windows/runner/msvc_runtime_dlls.cmake",
+        "shipped_files": [
+            "concrt140.dll",
+            "msvcp140.dll",
+            "msvcp140_1.dll",
+            "msvcp140_2.dll",
+            "msvcp140_atomic_wait.dll",
+            "msvcp140_codecvt_ids.dll",
+            "vcruntime140.dll",
+            "vcruntime140_1.dll"
+        ]
+    },
     "entries": [
         {
             "package": "google_fonts",

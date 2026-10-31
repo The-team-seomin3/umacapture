@@ -49,12 +49,14 @@ falling back to a slower path.
 | --- | --- |
 | Current delivery, evidence and remaining work | [Implementation status](docs/implementation-status.md) |
 | Korean application UI and its validation | [Korean localization](docs/korean-ui-localization.md) |
+| Windows local delivery | [Install-free build and verification](docs/windows-portable.md), [#15 integration validation](docs/validation/windows-isolation-integration-2026-10-31.md) |
 | Approved factor workflow, contracts and task entrypoints | [AGENTS.md](AGENTS.md) |
 | Native capture/recognition architecture | [Native backend overview](docs/native-recognition-backend.md) |
 | Reporting/update isolation and permitted module traffic | [Fork network policy](docs/fork-network-policy.md) |
 
-The status page links the OCR implementation and validation results and the open
-Windows delivery PR. The packaging manual remains in that separate PR.
+The status page links the OCR implementation and validation results and Windows delivery work.
+The optional OCR tool is included in this source change; packaging instructions and
+validation records are available through the delivery links above.
 
 
 ## Support and upstream
