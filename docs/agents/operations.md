@@ -29,6 +29,9 @@ subosito/flutter-action@v2
 For a selected-actions repository policy, allow GitHub-authored actions and these
 exact references. `setup-uv` has no `v10` major shorthand at this update; the
 published `v10.3.3` tag is used in both CI and the provisioning composite actions.
+Allowlist version patterns match the concrete reference: `@v10` does not permit
+`@v10.3.3`. After correcting a blocked-action policy, a run that failed before
+job creation may not be retryable; a new applicable PR event is then required.
 The v10 action uses Node 24 on the existing GitHub-hosted `windows-2022` runners.
 Provisioning steps retain `enable-cache: false`; the unconditional native setup
 keeps upstream defaults (v9 changed default cache pruning to false, and v10 changes
