@@ -54,6 +54,11 @@ These domains do not give one team exclusive ownership of whole directories.
    issue/PR links, verified state, relevant HEAD/base, remaining work, acceptance
    criteria and limits. Use the actual sender team in `Role`, separate from
    `Activity`, and retain the acting application identity in `Agent`.
+   Write authorized agent-to-agent chat handoffs and ready-to-send fallback
+   drafts in English unless the user explicitly requests otherwise, regardless
+   of the user-facing conversation language. Preserve exact team/chat names, IDs,
+   paths, code, schema keys and KR/JP quotations/data; keep localized runtime
+   strings and user-facing discussion/status in their existing language.
 4. **Separate transfer from validation.** Collabo records available/not available/
    not checked, designated/delivered, acknowledged and intake-verified states as
    supported. The relevant technical team validates identity and compatibility;
