@@ -32,7 +32,7 @@ publication, merge, deployment or private-data access authority.
 
 ## Working rules
 
-- Converse in the user's language; repository artifacts are English, except localized
+- Converse with the user in the user's language; repository artifacts are English, except localized
   runtime strings. Use the prepared task branch and PR to `develop`; no direct
   `develop` commits/pushes. Commit/push only when requested, including a requested PR.
 - Inspect symbols, callers and matching tests progressively. Read the C++ builders
