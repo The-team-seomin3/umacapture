@@ -16,6 +16,14 @@ explicit review drafts and the same safe exporter. The original manual CLIs belo
 remain supported. The adapter alone is not the complete Windows application or
 a change to Japanese capture/recognition.
 
+For explicit reuse of existing App settings, aggregated read-only prerequisite
+checks and optional private hash/error receipts, use the adapter's `--config`,
+`preflight --for COMMAND` and `--report` options described in
+[the CLI protocol](APP_PROTOCOL.md#explicit-cli-settings-reuse-and-read-only-preflight).
+Direct `--request` calls remain compatible. Preflight does not create a run or
+accept OCR; config/output identities must be supplied explicitly. This local
+source change has not updated an existing Windows package.
+
 ## Inputs and runtime
 
 Use Python 3.12+ with the versions in each script's inline dependency block.

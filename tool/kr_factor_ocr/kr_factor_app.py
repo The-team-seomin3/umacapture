@@ -13,11 +13,14 @@ from pathlib import Path
 import sys
 import tempfile
 
+sys.dont_write_bytecode = True
+import kr_factor_cli as cli
 import kr_factor_export as exporter
 import kr_factor_ocr as kr
 
 SCHEMA_VERSION = 1
-COMMANDS = ("run", "load", "lookup", "save-review", "validate-review", "export")
+OPERATIONS = ("run", "load", "lookup", "save-review", "validate-review", "export")
+COMMANDS = (*OPERATIONS, "preflight")
 EDITABLE_ROW = {"decision", "observed_name", "master_name", "star", "app_sid", "factor_id",
                 "factor_group_id", "name_difference_reason", "evidence"}
 LIMITATIONS = [
@@ -221,7 +224,7 @@ def dispatch(command, request):
     version = request.get("schema_version", SCHEMA_VERSION)
     if type(version) is not int or version != SCHEMA_VERSION:
         raise ValueError("Unsupported request schema_version")
-    if command not in COMMANDS:
+    if command not in OPERATIONS:
         raise ValueError("Unsupported command")
     if command == "lookup":
         return lookup(request)
@@ -263,21 +266,63 @@ class JsonParser(argparse.ArgumentParser):
 
 
 def main(argv=None):
-    command = None
+    command, request, report = None, {}, None
+    stage = "arguments"
+    actions = {
+        "arguments": "Use --request and/or an explicit --config; consult --help.",
+        "configuration": "Correct the named fields in a separate local config/request; originals are unchanged.",
+        "report": "Select a fresh absolute report in a separate existing private directory.",
+        "dispatch": "Check paths and pins with preflight --for COMMAND; preserve existing sessions, outputs and locks.",
+        "preflight": "Correct failed checks; preflight never repairs inputs or installs dependencies.",
+    }
     try:
         parser = JsonParser(description=__doc__)
         parser.add_argument("command", choices=COMMANDS)
-        parser.add_argument("--request", type=Path, required=True)
+        parser.add_argument("--request", type=Path)
+        parser.add_argument("--config", type=Path)
+        parser.add_argument("--for", dest="target", choices=OPERATIONS)
+        parser.add_argument("--report", type=Path)
         args = parser.parse_args(argv)
         command = args.command
-        request = exporter.read_json(args.request)
+        if not args.request and not args.config:
+            raise ValueError("Provide --request and/or --config explicitly")
+        if command != "preflight" and args.target:
+            raise ValueError("--for is supported only for preflight")
+        if command == "preflight" and args.report:
+            raise ValueError("preflight is read-only; --report is not supported")
+        stage = "configuration"
+        settings = cli.object_json(args.config) if args.config else {}
+        override = cli.object_json(args.request) if args.request else {}
+        target = args.target or "run" if command == "preflight" else command
+        request = (cli.build_request(settings, override, target)
+                   if args.config or command == "preflight" else override)
+        if args.report:
+            stage = "report"
+            report = cli.open_report(sys.modules[__name__], args.report, request, (args.config, args.request), settings)
+        stage = "preflight" if command == "preflight" else "dispatch"
         with redirect_stdout(sys.stderr):
-            value = dispatch(command, request)
-        code = 2 if value["status"] == "needs_review" else 0
+            value = (cli.preflight(sys.modules[__name__], request, target, settings)
+                     if command == "preflight" else dispatch(command, request))
+        code = 1 if value["status"] == "error" else 2 if value["status"] == "needs_review" else 0
     except Exception as error:
-        value = {"status": "error", "completed": False, "error_type": type(error).__name__, "message": str(error)}
+        value = {"status": "error", "completed": False, "error_type": type(error).__name__,
+                 "message": str(error), "stage": stage, "error_code": f"{stage}_failed", "action": actions[stage]}
+        if isinstance(error, cli.ConfigurationError):
+            value["issues"] = error.issues
         code = 1
     value.update(schema_version=SCHEMA_VERSION, command=command)
+    if report is not None:
+        try:
+            with report:
+                json.dump(cli.report_value(sys.modules[__name__], command, request, value, code),
+                          report, ensure_ascii=False, sort_keys=True, allow_nan=False)
+                report.write("\n")
+                report.flush()
+                os.fsync(report.fileno())
+        except Exception as error:
+            # Preserve the command's actual outcome; never turn a completed export into a retry signal.
+            value["report_error"] = {"error_type": type(error).__name__, "message": str(error),
+                                     "action": "Preserve command outputs; inspect the partial private report separately."}
     print(json.dumps(value, ensure_ascii=False, allow_nan=False))
     return code
 

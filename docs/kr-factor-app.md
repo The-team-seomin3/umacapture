@@ -94,3 +94,7 @@ Korean inference, game capture, Windows native identity/packaging, downstream im
 or OCR accuracy. General/Recognition integration must record those checks with
 fresh artifacts and the authorized inputs actually used. The earlier unusable KR
 artifact remains unidentified unless separate evidence identifies its stage.
+
+For explicit CLI reuse of saved App settings, read-only preflight and opt-in local
+receipts, see the [adapter protocol](../tool/kr_factor_ocr/APP_PROTOCOL.md#explicit-cli-settings-reuse-and-read-only-preflight).
+These are CLI options; the Flutter settings and UI are unchanged.

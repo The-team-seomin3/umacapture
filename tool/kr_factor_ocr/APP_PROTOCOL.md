@@ -198,3 +198,105 @@ General owns Windows executable/package integration. The adapter alone does not
 establish a usable second application, live game capture, downstream import,
 release readiness or simultaneous execution. #29 candidate changes remain outside
 this Phase-1 adapter.
+
+## Explicit CLI settings reuse and read-only preflight
+
+The existing direct `COMMAND --request request.json` interface remains supported.
+Additive flags are `--config settings.json`, `--request overrides.json`, and
+`--report /absolute/private/reports/run.json`. No flags discover stored settings,
+expand environment variables, launch a configured interpreter, install anything,
+or change settings. Invoke the intended Python and adapter yourself.
+
+`--config` reads an explicitly selected copy of the existing flat
+`kr-workflow-settings.json`. Allowed keys are the eight shared request fields
+above, optional integer `schema_version: 1`, and the existing `interpreter`,
+`adapter`, `output_root` settings. The latter three are configuration metadata,
+not forwarded request fields. No output/evidence path is guessed from output_root.
+Keep export paths and review/save/lookup-specific fields in an explicit request.
+
+Precedence is schema version 1, then config shared fields, then explicit request
+values. Both supplied layers must independently have valid schema/types/absolute
+paths/pin spelling; overrides cannot mask a malformed saved value. Unknown keys
+fail in this new config interface and in preflight. Direct v1 request commands
+retain their previous permissive extra-field behavior. Missing prerequisites can
+be aggregated by preflight rather than guessed. JSON duplicate keys and non-finite
+numbers are rejected. Merging sorts keys and never modifies either input object/file.
+
+Example, after preparing a Linux-local config with the actual absolute paths and
+exact pins (no Windows settings are read automatically):
+
+```sh
+python -B tool/kr_factor_ocr/kr_factor_app.py preflight --for run --config /private/kr-settings.json
+python -B tool/kr_factor_ocr/kr_factor_app.py run --config /private/kr-settings.json --request /private/new-run.json
+python -B tool/kr_factor_ocr/kr_factor_app.py preflight --for load --config /private/kr-settings.json
+python -B tool/kr_factor_ocr/kr_factor_app.py load --config /private/kr-settings.json
+```
+
+A new-run override can be just
+`{"working_dir":"/private/kr-runs/new-run-02"}`. An export override needs explicit
+`output` and `evidence_output`, with the unchanged replacement rules. Run
+preflight for the selected operation; preflight does not run automatically before
+mutating commands, and a later operation still performs authoritative checks.
+
+### Preflight response and limits
+
+`preflight --for COMMAND` supports the six original commands; the default target
+is run. It returns one stdout JSON envelope with command preflight,
+target_command, stage preflight, completed false, failed_checks, request_sha256,
+and checks. Each check has field/stage/status; failures add code/message/action.
+Exit 0 means the stated prerequisite checks passed; exit 1 means at least one
+failed. It never returns exit 2 or completed true. Invalid config/argument JSON
+instead returns the ordinary structured error envelope.
+
+Checks aggregate applicable paths, SHA256 pins, SQLite header/pending WAL,
+module/record metadata, capture JSON/PNG header dimensions/geometry, fresh versus
+existing session state, locks, export destinations and installed runtime package
+pins/module discovery. Run requires a nonexistent working path. Resume commands
+require an existing directory with parseable diagnostics/review files and no
+review writer lock. Existing partial work and locks are preserved with actionable
+messages, never deleted. Lookup checks only its required inputs. Explicit saved
+interpreter/adapter paths are inspected for availability and identity, not invoked.
+
+Preflight creates no files, directories, master copies, reviews, locks or outputs.
+It does not open the original SQLite with SQLite, import the OCR/native runtime,
+run inference, decode full image pixels, validate full saved tool/crop/review
+bindings or establish export readiness. Those items are explicitly listed under
+not_tested; success is scoped to the checks performed. An installed/discoverable
+package is not proof its native library loads. The selected operation retains the
+existing full validation, stable master-copy and review/export authority.
+`--report` is rejected for preflight so that even optional reports cannot make
+the preflight operation write. Redirect stdout yourself only when explicitly desired.
+
+### Errors and optional private receipts
+
+Errors retain error_type/message and add stage, error_code, action.
+Configuration errors also expose an issues list. Existing status/completed and
+exit 0/1/2 meanings remain unchanged; one stdout JSON response is preserved.
+
+For an operation command, opt in to a report explicitly:
+
+```sh
+python -B tool/kr_factor_ocr/kr_factor_app.py load --config /private/kr-settings.json --report /private/reports/load-01.json
+```
+
+Select an existing private report directory outside source/input/work/output
+locations. The report path must be absolute, contain no links/junctions, and not
+exist; reservation is exclusive and Linux permissions are 0600. A bad/existing
+destination fails before dispatch. Config/argument errors occur before report
+reservation and are reported on stdout only. The CLI never creates report parents.
+
+A report contains report_version, command, exit/status/stage, a canonical effective
+request SHA256, Python version, allowlisted source/input/output file hashes where
+available, and safe error_type/error_code/action. It excludes raw requests, arbitrary
+unknown values, raw exception messages/stack traces, OCR rows and reviews. The
+request hash includes all effective request fields but retains none of their raw
+values. File identities are observed at report time, not a transactional snapshot
+or a substitute for exporter receipts. Report serialization/write failure adds
+report_error to the actual command response and preserves its original exit and
+completed outcome: do not repeat a completed export because its optional report
+failed. Preserve any partial report; no cleanup/retry is automatic. Reports stay
+private and local with no upload/telemetry.
+
+Ship the new `kr_factor_cli.py` helper beside the adapter/producer/exporter when
+later packaging this source. Existing Windows packages contain the earlier adapter;
+this local Linux change has not rebuilt or updated them.
