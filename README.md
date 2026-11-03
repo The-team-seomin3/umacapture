@@ -13,8 +13,10 @@ umacapture is a software that extracts in-game information from the game [ウマ
 This software is designed not to interfere with the game client or server and is not intended to violate the terms of use.
 
 This fork starts the Windows application UI in Korean, with Japanese resources retained.
-The built-in game recognizer remains Japanese. Korean factor extraction uses a separate
-offline postprocessor after the ordinary three-tab capture. The optional
+The default built-in game recognizer remains Japanese. The optional
+[Korean-factor Windows variant](docs/windows-ocr-variants.md) connects local Korean
+OCR, explicit pixel review and safe export after the ordinary three-tab capture.
+Its recognition scope is factors; copied non-factor values remain unverified. The optional
 [Korean factor OCR and reviewed JSON export](tool/kr_factor_ocr/README.md) are included
 in this source change; they are not a published fork release.
 Automatic Korean factor OCR currently has low recognition accuracy. AI models are
@@ -49,6 +51,8 @@ falling back to a slower path.
 | --- | --- |
 | Current delivery, evidence and remaining work | [Implementation status](docs/implementation-status.md) |
 | Korean application UI and its validation | [Korean localization](docs/korean-ui-localization.md) |
+| KR factor app paths and review/export UI | [Korean factor application workflow](docs/kr-factor-app.md) |
+| Japanese and Korean-factor app builds | [Two Windows OCR variants](docs/windows-ocr-variants.md) |
 | Windows local delivery | [Install-free build and verification](docs/windows-portable.md), [#15 integration validation](docs/validation/windows-isolation-integration-2026-10-31.md) |
 | Approved factor workflow, contracts and task entrypoints | [AGENTS.md](AGENTS.md) |
 | Native capture/recognition architecture | [Native backend overview](docs/native-recognition-backend.md) |

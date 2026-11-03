@@ -20,6 +20,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '/src/core/app_logger.dart';
+import '/src/core/app_variant.dart';
 
 /// Current on-disk schema version of [bootstrapFileName].
 const int _bootstrapVersion = 1;
@@ -81,7 +82,93 @@ String sampleBootstrapContent(String examplePath) =>
 /// Returns the fixed bootstrap file, independent of any override.
 Future<File> _bootstrapFile() async {
   final supportDir = await getApplicationSupportDirectory();
-  return File(p.join(supportDir.path, bootstrapFileName));
+  return File(p.join(supportDir.path, isKoreanFactorApp ? koreanBootstrapFileName : bootstrapFileName));
+}
+
+const String koreanBootstrapFileName = 'data_root_kr.json';
+const String koreanDataRootEnvVar = 'UMACAPTURE_KR_DATA_ROOT';
+
+class KoreanDataRootException implements Exception {
+  const KoreanDataRootException(this.message);
+  final String message;
+  @override
+  String toString() => message;
+}
+
+/// KR never reads JP's override as its own root. Read it only to refuse overlap.
+/// A missing default KR directory may be created; a configured missing drive may not.
+Future<String> readKoreanDataRoot({
+  required Directory supportDirectory,
+  required Directory documentsDirectory,
+  required Map<String, String> environment,
+}) async {
+  resolvedDataRoot = null;
+  configuredDataRoot = null;
+  dataRootDegraded = false;
+  try {
+    final file = File(p.join(supportDirectory.path, koreanBootstrapFileName));
+    var createDefault = false;
+    var root = environment[koreanDataRootEnvVar];
+    if (root == null || root.trim().isEmpty) {
+      if (file.existsSync()) {
+        final value = jsonDecode(file.readAsStringSync());
+        if (value is! Map ||
+            value['version'] != 1 ||
+            value['data_root'] is! String ||
+            (value['data_root'] as String).trim().isEmpty) {
+          throw const FormatException('KR 데이터 경로 설정 형식이 올바르지 않습니다.');
+        }
+        root = value['data_root'] as String;
+      } else {
+        root = p.join(supportDirectory.path, 'kr-factor-app');
+        createDefault = true;
+      }
+    }
+    configuredDataRoot = root;
+    if (!p.isAbsolute(root) || (!createDefault && !_ensureUsable(root))) {
+      throw const FormatException('KR 데이터 경로가 없거나 절대 경로가 아닙니다. 드라이브와 권한을 확인하세요.');
+    }
+    final actual = Directory(root).existsSync()
+        ? Directory(root).resolveSymbolicLinksSync()
+        : p.join(supportDirectory.resolveSymbolicLinksSync(), 'kr-factor-app');
+    final protected = <String>[p.join(documentsDirectory.path, 'umacapture'), p.join(supportDirectory.path, 'modules')];
+    final jpEnv = environment[dataRootOverrideEnvVar];
+    if (jpEnv != null && jpEnv.trim().isNotEmpty) protected.add(jpEnv);
+    final jpFile = File(p.join(supportDirectory.path, bootstrapFileName));
+    if (jpFile.existsSync()) {
+      final jp = jsonDecode(jpFile.readAsStringSync());
+      if (jp is Map && jp['data_root'] is String) protected.add(jp['data_root'] as String);
+    }
+    for (final source in protected) {
+      if (!p.isAbsolute(source)) continue;
+      final target = Directory(source).existsSync()
+          ? Directory(source).resolveSymbolicLinksSync()
+          : p.normalize(source);
+      if (p.equals(actual, target) || p.isWithin(target, actual) || p.isWithin(actual, target)) {
+        throw const FormatException('KR 데이터 경로가 JP 저장소와 겹칩니다. 별도 폴더를 선택하세요.');
+      }
+    }
+    if (createDefault) Directory(actual).createSync(recursive: true);
+    final probe = Directory(actual).createTempSync('.kr-startup-probe-');
+    probe.deleteSync();
+    resolvedDataRoot = actual;
+    return actual;
+  } catch (error) {
+    dataRootDegraded = true;
+    throw KoreanDataRootException('KR 저장소를 열지 않았습니다. JP 경로로 전환하지 않습니다.\n$error');
+  }
+}
+
+/// Recovery is available before settings or startup maintenance opens any store.
+Future<void> writeKoreanDataRoot(String? root) async {
+  final supportDir = await getApplicationSupportDirectory();
+  final file = File(p.join(supportDir.path, koreanBootstrapFileName));
+  if (root == null) {
+    if (file.existsSync()) file.deleteSync();
+  } else {
+    if (!_ensureUsable(root)) throw const FormatException('존재하는 절대 경로를 선택하세요.');
+    file.writeAsStringSync(sampleBootstrapContent(root), flush: true);
+  }
 }
 
 /// Reads the configured data root and caches it in [resolvedDataRoot].
@@ -99,6 +186,21 @@ Future<String?> readDataRootOverride() async {
   if (kIsWeb) {
     resolvedDataRoot = null;
     return null;
+  }
+  if (isKoreanFactorApp) {
+    try {
+      return await readKoreanDataRoot(
+        supportDirectory: await getApplicationSupportDirectory(),
+        documentsDirectory: await getApplicationDocumentsDirectory(),
+        environment: Platform.environment,
+      );
+    } on KoreanDataRootException {
+      rethrow;
+    } catch (error) {
+      resolvedDataRoot = null;
+      dataRootDegraded = true;
+      throw KoreanDataRootException('KR 저장소 기본 경로를 확인하지 못했습니다. JP 경로로 전환하지 않습니다.\n$error');
+    }
   }
   final envRoot = Platform.environment[dataRootOverrideEnvVar];
   if (envRoot != null && envRoot.trim().isNotEmpty) {

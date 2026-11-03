@@ -22,6 +22,8 @@ import '/src/core/providers.dart';
 import '/src/core/sentry_util.dart';
 import '/src/core/utils.dart';
 import '/src/core/version_check.dart';
+import '/src/core/app_variant.dart';
+import '/src/gui/kr_factor_workflow.dart';
 import '/src/gui/common.dart';
 import '/src/gui/module_update_activity.dart';
 import '/src/gui/module_update_dialog.dart';
@@ -609,6 +611,7 @@ class DashboardPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (isKoreanFactorApp) return const KoreanFactorWorkflowPage();
     final result = ref.watch(_versionCheckLoader).asData?.value;
     // Watch moduleVersionLoader to ensure the automatic check runs, then drive
     // the banner from the failure state (true when the module could not be

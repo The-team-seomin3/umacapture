@@ -72,6 +72,18 @@ set(FLUTTER_MANAGED_DIR "${CMAKE_CURRENT_SOURCE_DIR}/flutter")
 # Flutter library and tool build rules.
 add_subdirectory(${FLUTTER_MANAGED_DIR})
 
+# Keep native identity bound to the same Dart define as the application UI.
+# Flutter records base64-encoded defines in this generated file before CMake runs.
+file(STRINGS "${FLUTTER_MANAGED_DIR}/ephemeral/generated_config.cmake"
+     UMACAPTURE_DEFINE_LINE REGEX "DART_DEFINES=")
+set(UMACAPTURE_IS_KR FALSE)
+if(UMACAPTURE_DEFINE_LINE MATCHES "[=,]VU1BQ0FQVFVSRV9WQVJJQU5UPWty[,\"]")
+    set(UMACAPTURE_IS_KR TRUE)
+    set(BINARY_NAME "umacapture_kr")
+endif()
+
+message(STATUS "umacapture native variant: ${BINARY_NAME}; KR=${UMACAPTURE_IS_KR}")
+
 # Application build
 add_subdirectory("runner")
 
@@ -87,9 +99,9 @@ include(flutter/generated_plugins.cmake)
 set(BUILD_BUNDLE_DIR "$<TARGET_FILE_DIR:${BINARY_NAME}>")
 # Make the "install" step default, as it's required to run.
 set(CMAKE_VS_INCLUDE_INSTALL_TO_DEFAULT_BUILD 1)
-if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-    set(CMAKE_INSTALL_PREFIX "${BUILD_BUNDLE_DIR}" CACHE PATH "..." FORCE)
-endif ()
+# Always assemble locally, including retries after a failed first configure.
+# A target-independent path also survives switching between JP and KR builds.
+set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/runner/$<CONFIG>" CACHE PATH "Local application bundle" FORCE)
 
 set(INSTALL_BUNDLE_DATA_DIR "${CMAKE_INSTALL_PREFIX}/data")
 set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}")

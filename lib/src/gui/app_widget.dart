@@ -12,6 +12,7 @@ import '/src/addon/addon_dispatcher.dart';
 import '/src/app/pages.dart';
 import '/src/app/route.dart';
 import '/src/core/notification_controller.dart';
+import '/src/core/app_variant.dart';
 import '/src/core/platform_controller.dart';
 import '/src/core/providers.dart';
 import '/src/core/utils.dart';
@@ -448,7 +449,7 @@ class ApplicationWidgetState extends ConsumerState<ApplicationWidget> {
       darkTheme: darkTheme,
       themeMode: themeMode,
       child: MaterialApp.router(
-        title: 'umacapture',
+        title: applicationTitle,
         theme: lightTheme,
         darkTheme: darkTheme,
         themeMode: themeMode,

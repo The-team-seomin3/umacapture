@@ -72,6 +72,16 @@ IDI_APP_ICON            ICON                    "resources\\app_icon.ico"
 #define VERSION_AS_STRING "1.0.0"
 #endif
 
+#ifdef UMACAPTURE_KR_VARIANT
+#define APP_DESCRIPTION "umacapture Korean Factor OCR"
+#define APP_INTERNAL_NAME "umacapture_kr"
+#define APP_FILENAME "umacapture_kr.exe"
+#else
+#define APP_DESCRIPTION "umacapture"
+#define APP_INTERNAL_NAME "umacapture"
+#define APP_FILENAME "umacapture.exe"
+#endif
+
 VS_VERSION_INFO VERSIONINFO
  FILEVERSION VERSION_AS_NUMBER
  PRODUCTVERSION VERSION_AS_NUMBER
@@ -90,12 +100,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "umasagashi" "\0"
-            VALUE "FileDescription", "umacapture" "\0"
+            VALUE "FileDescription", APP_DESCRIPTION "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "umacapture" "\0"
+            VALUE "InternalName", APP_INTERNAL_NAME "\0"
             VALUE "LegalCopyright", "Copyright (C) 2022 umasagashi. All rights reserved." "\0"
-            VALUE "OriginalFilename", "umacapture.exe" "\0"
-            VALUE "ProductName", "umacapture" "\0"
+            VALUE "OriginalFilename", APP_FILENAME "\0"
+            VALUE "ProductName", APP_DESCRIPTION "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

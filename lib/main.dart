@@ -10,6 +10,7 @@ import 'package:window_manager/window_manager.dart';
 
 import '/const.dart';
 import '/src/core/app_instance.dart';
+import '/src/core/app_variant.dart';
 import '/src/core/bootstrap.dart';
 import '/src/core/localization_util.dart';
 import '/src/core/raw_frame_probe.dart';
@@ -17,6 +18,7 @@ import '/src/core/sentry_util.dart';
 import 'src/core/mapper_init.dart';
 import 'src/gui/app_fonts.dart';
 import 'src/gui/app_widget.dart';
+import 'src/gui/kr_data_root_recovery.dart';
 import 'src/preference/storage_box.dart';
 import 'src/preference/window_state.dart';
 
@@ -260,6 +262,16 @@ Future<bool> runStartupSequence(
       }
     } catch (error, stackTrace) {
       debugPrint("umacapture: startup step '$name' failed\n$stackTrace");
+      if (error is KoreanDataRootException && onFatal == null) {
+        runApp(KoreanDataRootRecoveryApp(message: error.message, onRetry: () => main()));
+        if (CurrentPlatform.hasWindowFrame()) {
+          await windowManager.ensureInitialized();
+          await windowManager.setTitle(koreanWindowTitle);
+          await windowManager.show();
+          await windowManager.focus();
+        }
+        return false;
+      }
       (onFatal ?? reportFatalStartupError)(startupFailureMessage(name, error));
       return false;
     }
@@ -369,7 +381,12 @@ class AppInstanceWaitingScreen extends StatelessWidget {
 void setupWindowManager() async {
   await windowManager.ensureInitialized();
   windowManager.waitUntilReadyToShow(
-    const WindowOptions(titleBarStyle: TitleBarStyle.hidden, minimumSize: Size(600, 400), center: true),
+    const WindowOptions(
+      title: isKoreanFactorApp ? koreanWindowTitle : null,
+      titleBarStyle: TitleBarStyle.hidden,
+      minimumSize: Size(600, 400),
+      center: true,
+    ),
     () async {
       final box = WindowStateBox();
       final size = box.getSize();

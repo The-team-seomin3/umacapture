@@ -8,6 +8,14 @@ Only factor IDs/stars and existing `metadata.region = "KR"` change. KR denotes
 the Korean game source, adopted by the owner on October 31, 2026. Copied
 non-factor values remain unverified for Korean-client accuracy.
 
+## Application process adapter
+
+For the Phase-1 Korean-factor application, use the [JSON process protocol](APP_PROTOCOL.md)
+via `kr_factor_app.py`. It orchestrates actual diagnostics, pinned-master lookup,
+explicit review drafts and the same safe exporter. The original manual CLIs below
+remain supported. The adapter alone is not the complete Windows application or
+a change to Japanese capture/recognition.
+
 ## Inputs and runtime
 
 Use Python 3.12+ with the versions in each script's inline dependency block.

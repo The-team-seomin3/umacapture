@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '/src/app/route.dart';
+import '/src/core/app_variant.dart';
 
 class PageLabel {
   final PageRouteInfo route;
@@ -18,7 +19,7 @@ class Pages {
   static List<PageLabel> get labels => <PageLabel>[
     PageLabel(
       route: const DashboardRoute(),
-      label: "pages.dashboard.title".tr(),
+      label: isKoreanFactorApp ? '한국어 인자 OCR' : "pages.dashboard.title".tr(),
       selectedIcon: const Icon(Symbols.dashboard_rounded, fill: 1),
       unselectedIcon: const Icon(Symbols.dashboard_rounded),
     ),

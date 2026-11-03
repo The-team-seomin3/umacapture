@@ -15,6 +15,7 @@ import 'package:version/version.dart';
 
 import '/const.dart';
 import '/src/app/route.dart';
+import '/src/core/app_variant.dart';
 import '/src/core/mapper_init.dart';
 import '/src/core/path_entity.dart';
 import '/src/core/providers.dart';
@@ -1425,6 +1426,15 @@ ModuleVersion? compatibleInstalledModule(ModuleVersionRawData? local, Version ap
 }
 
 final moduleVersionLoader = FutureProvider<ModuleVersion?>((ref) async {
+  if (isKoreanFactorApp) {
+    // The KR workflow uses explicitly installed local capture modules; it must
+    // not replace a pinned module while a factor review is bound to its bytes.
+    final paths = await ref.watch(pathInfoLoader.future);
+    final local = await compute(ModuleVersionRawData.load, paths.modulesDir.filePath('version_info.json'));
+    if (local == null) return null;
+    final app = await ref.watch(packageInfoLoader.future);
+    return compatibleInstalledModule(local, Version.parse(app.version));
+  }
   // Web has no desktop-style auto-updater (no dart:io FS, no on-disk zip
   // extraction). Instead it bootstraps the module data into OPFS once from the
   // same network source the desktop app uses, then reads the local

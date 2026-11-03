@@ -13,6 +13,7 @@ import 'package:recase/recase.dart';
 import '/const.dart';
 import '/src/chara_detail/storage.dart';
 import '/src/core/clipboard_alt.dart';
+import '/src/core/app_variant.dart';
 import '/src/core/path_entity.dart';
 import '/src/core/platform_controller.dart';
 import '/src/core/providers.dart';
@@ -604,7 +605,7 @@ class SystemGroup extends ConsumerWidget {
       // there rather than offering a broken migration. The web build reports
       // the host OS via defaultTargetPlatform (isWindows() is true in a Windows
       // browser), so exclude web explicitly.
-      if (!onWeb && CurrentPlatform.isWindows()) const DataRootTile(),
+      if (!onWeb && CurrentPlatform.isWindows() && !isKoreanFactorApp) const DataRootTile(),
       // Where the data is, then what is in it. Ungated: this is the only way
       // into the storage view on web, where the two rows above are absent.
       const StorageManagerTile(),
