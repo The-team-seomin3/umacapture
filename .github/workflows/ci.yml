@@ -1,22 +1,11 @@
 name: CI
 
-# Runs the native C++ (doctest) suite, the Flutter unit/widget suite and the
-# browser-only Dart suites on every PR to develop. Pushes to develop run no tests:
-# they run warm-caches.yml, which keeps the develop-scoped caches these jobs
-# restore (see the top of that file for why the merge commit needs no second run).
-# The jobs that build or test run on GitHub-hosted windows-2022: the native tests
-# need MSVC (and a downloaded OpenCV, see below), and the app is Windows-only.
-#
-# Every cache warm-caches.yml warms is defined once, in an action under
-# .github/actions/ that the jobs here use too; do not inline one of them here.
-#
-# The two required checks are the job names "Native C++ tests (doctest)" and
-# "Flutter unit/widget tests". The second is an aggregate: the Flutter work is split
-# into parallel jobs (three test shards, static checks, the web build, the browser
-# suites) because `flutter test` compiles one test file at a time, so one job running
-# every file is bounded by that serial compile no matter how many cores it has. The
-# aggregate fails unless every one of those jobs succeeded, so "Browser tests" blocks
-# a merge through it. "Native C++ coverage" is not a required check.
+# A narrow portable CLI diff runs only Linux routing/Python checks. Unknown,
+# mixed, App/native/Windows and Windows execution-contract changes retain the
+# existing Windows jobs. The stable required native/Flutter names are always-run
+# Ubuntu routing gates: they require actual applicable checks and explicitly
+# report Windows work as not applicable for a verified portable-only diff.
+# No workflow-level path skip or skip-ci marker is used.
 on:
   pull_request:
     branches: [develop]
@@ -27,8 +16,58 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  scope:
+    name: Classify PR scope (Linux)
+    runs-on: ubuntu-latest
+    outputs:
+      lane: ${{ steps.classify.outputs.lane }}
+      windows: ${{ steps.classify.outputs.windows }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Classify the complete PR diff
+        id: classify
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python3 tool/ci/pr_scope.py classify --base "$BASE_SHA" --head "$HEAD_SHA"
+
+  cli-tests:
+    name: Portable KR CLI tests (Linux)
+    needs: scope
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test CI routing and required-gate outcomes
+        run: python3 -B -m unittest discover -s tool/ci -v
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.3.3
+      - name: Test the pinned offline CLI and review/export contracts
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: >-
+          uv run --no-project --python 3.12
+          --with rapidocr==3.10.0 --with onnxruntime==1.31.1
+          --with opencv-python-headless==4.13.0.92 --with numpy==2.5.4
+          python -B -m unittest discover -s tool/kr_factor_ocr -v
+
   native-tests:
     name: Native C++ tests (doctest)
+    needs: [scope, cli-tests, native-tests-windows]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require applicable native or portable checks
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: python3 tool/ci/pr_scope.py gate --context native
+
+  native-tests-windows:
+    name: Native C++ tests (Windows)
+    needs: scope
+    if: needs.scope.outputs.windows == 'true'
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
@@ -154,6 +193,8 @@ jobs:
   # retries below giving up -- shows red on the PR but does not block the merge.
   native-coverage:
     name: Native C++ coverage
+    needs: scope
+    if: needs.scope.outputs.windows == 'true'
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
@@ -215,28 +256,19 @@ jobs:
           path: native/coverage
           if-no-files-found: warn
 
-  # The required check "Flutter unit/widget tests". It runs no work of its own: it only decides
-  # whether the Flutter jobs it depends on -- the browser suites included -- all succeeded. The
-  # browser job is gated here rather than as a required context of its own, so the gate is
-  # reviewed with the workflow and a skipped browser job fails it instead of passing. `if: always()` is what makes it a gate.
-  # Without it, a failed, cancelled or skipped dependency would make GitHub skip this job, and a
-  # skipped job reports Success to branch protection -- the required check would pass with the
-  # tests never having passed. So it always runs, and fails on any result other than `success`
-  # (a matrix job's result is the combined result of its shards). ubuntu-latest because it runs
-  # no project code, and it is the runner that picks such a job up soonest.
+  # Keep the required name and fail on missing/failed/cancelled applicable work.
+  # Portable-only Windows skips are explicit non-applicability, never test passes.
   flutter-tests:
     name: Flutter unit/widget tests
-    needs: [flutter-test-shards, flutter-static, flutter-web, browser-tests]
+    needs: [scope, cli-tests, flutter-test-shards, flutter-static, flutter-web, browser-tests]
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: Require every Flutter job to have succeeded
-        shell: bash
+      - uses: actions/checkout@v4
+      - name: Require applicable Flutter or portable checks
         env:
           NEEDS: ${{ toJSON(needs) }}
-        run: |
-          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
-          echo "$NEEDS" | jq -e 'all(.[]; .result == "success")' > /dev/null
+        run: python3 tool/ci/pr_scope.py gate --context flutter
 
   # The Dart VM test suite, split by FILE across three jobs. Unit/widget only: the
   # Windows-desktop integration_test (needs a full app build + uv) is intentionally excluded.
@@ -264,6 +296,8 @@ jobs:
   # --reporter github emits GitHub Actions annotations for failures and a more compact log.
   flutter-test-shards:
     name: Flutter tests (shard ${{ matrix.shard }} of ${{ strategy.job-total }})
+    needs: scope
+    if: needs.scope.outputs.windows == 'true'
     runs-on: windows-2022
     strategy:
       # Every shard reports its own failures instead of being cancelled by a sibling's.
@@ -295,6 +329,8 @@ jobs:
 
   flutter-static:
     name: Flutter static checks
+    needs: scope
+    if: needs.scope.outputs.windows == 'true'
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
@@ -482,6 +518,8 @@ jobs:
 
   flutter-web:
     name: Flutter web build
+    needs: scope
+    if: needs.scope.outputs.windows == 'true'
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
@@ -564,6 +602,8 @@ jobs:
 
   browser-tests:
     name: Browser tests
+    needs: scope
+    if: needs.scope.outputs.windows == 'true'
     runs-on: windows-2022
     # The suite bounds every acquisition itself (5 s per assertion) and the whole
     # job takes ~2 min, so this ceiling only catches a browser that never starts.
