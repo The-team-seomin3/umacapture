@@ -10,6 +10,9 @@ import subprocess
 import sys
 
 WORKFLOW = ".github/workflows/ci.yml"
+WARM_WORKFLOW = ".github/workflows/warm-caches.yml"
+ROUTED_WORKFLOWS = {WORKFLOW, WARM_WORKFLOW}
+WARM_CONCURRENCY = "concurrency:\n  group: warm-caches-${{ github.ref }}\n  cancel-in-progress: true\n"
 PORTABLE = {
     "tool/kr_factor_ocr/kr_factor_app.py", "tool/kr_factor_ocr/kr_factor_cli.py",
     "tool/kr_factor_ocr/test_kr_factor_app.py", "tool/kr_factor_ocr/test_kr_factor_cli.py",
@@ -94,16 +97,30 @@ def windows_contract(text):
     return {"__workflow_header__": header, **jobs}
 
 
-def classify_paths(paths, before_workflow=None, after_workflow=None):
+def warm_job_concurrency(text):
+    """Normalize the original warm workflow's exact concurrency block to job scope."""
+    header, jobs, body = text.partition("\njobs:\n")
+    if ("\n" + WARM_CONCURRENCY.rstrip() + "\n") in ("\n" + header + "\n"):
+        job_block = "".join("    " + line for line in WARM_CONCURRENCY.splitlines(keepends=True))
+        header = (header + "\n").replace("\n" + WARM_CONCURRENCY, "\n", 1)
+        body = re.sub(r"^  warm:\n", "  warm:\n" + job_block, body, count=1, flags=re.MULTILINE)
+        text = header.rstrip("\n") + jobs + body
+    return text
+
+
+def classify_paths(paths, workflows=None):
     paths = set(paths)
-    unknown = paths - PORTABLE - {WORKFLOW}
+    unknown = paths - PORTABLE - ROUTED_WORKFLOWS
     if not paths or unknown:
         return "windows"
-    if WORKFLOW in paths:
+    for path in paths & ROUTED_WORKFLOWS:
         try:
-            if windows_contract(before_workflow) != windows_contract(after_workflow):
+            before, after = (workflows or {})[path]
+            if path == WARM_WORKFLOW:
+                before = warm_job_concurrency(before)
+            if windows_contract(before) != windows_contract(after):
                 return "windows"
-        except (AttributeError, TypeError, ValueError):
+        except (AttributeError, KeyError, TypeError, ValueError):
             return "windows"
     return "portable"
 
@@ -112,22 +129,24 @@ def git(*args):
     return subprocess.check_output(["git", *args])
 
 
-def classify_refs(base, head):
+def classify_refs(base, head, *, push=False):
     for ref in (base, head):
         if not re.fullmatch(r"(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})", ref):
             raise ValueError("Explicit full commit SHAs are required")
         git("cat-file", "-e", ref + "^{commit}")
     # Rename detection is disabled: a move from outside the allowlist stays visible.
-    raw = git("diff", "--no-renames", "--name-only", "-z", base + "..." + head)
+    diff_range = base + (".." if push else "...") + head
+    raw = git("diff", "--no-renames", "--name-only", "-z", diff_range)
     paths = [p.decode("utf-8") for p in raw.split(b"\0") if p]
-    before = after = None
-    if WORKFLOW in paths:
+    workflows = {}
+    for path in set(paths) & ROUTED_WORKFLOWS:
         try:
-            before = git("show", base + ":" + WORKFLOW).decode("utf-8")
-            after = git("show", head + ":" + WORKFLOW).decode("utf-8")
+            before = git("show", base + ":" + path).decode("utf-8")
+            after = git("show", head + ":" + path).decode("utf-8")
         except (subprocess.CalledProcessError, UnicodeDecodeError):
-            pass
-    return classify_paths(paths, before, after), paths
+            continue
+        workflows[path] = (before, after)
+    return classify_paths(paths, workflows), paths
 
 
 def verify_gate(needs, context):
@@ -157,11 +176,12 @@ def main():
     scope = commands.add_parser("classify")
     scope.add_argument("--base", required=True)
     scope.add_argument("--head", required=True)
+    scope.add_argument("--push", action="store_true", help="Compare the before and after push trees directly")
     gate = commands.add_parser("gate")
     gate.add_argument("--context", required=True, choices=tuple(WINDOWS_JOBS))
     args = parser.parse_args()
     if args.command == "classify":
-        lane, paths = classify_refs(args.base, args.head)
+        lane, paths = classify_refs(args.base, args.head, push=args.push)
         print(json.dumps({"lane": lane, "changed_paths": paths}, sort_keys=True))
         if os.environ.get("GITHUB_OUTPUT"):
             with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as stream:

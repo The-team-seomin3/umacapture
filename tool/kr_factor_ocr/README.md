@@ -17,16 +17,20 @@ Windows GUI, native-plugin or game-capture support.
 
 PR CI first classifies the complete diff. The narrow allowlist in
 `tool/ci/pr_scope.py` runs routing regressions and the pinned Python suite on Linux;
-unknown, mixed, App/native/Windows changes retain the Windows lane. A routing-only
-edit to `ci.yml` is portable only when the existing Windows runner execution
-contracts are unchanged. Windows step/runner/matrix changes require that lane.
+unknown, mixed, App/native/Windows changes retain the Windows lane. Routing-only
+edits to `ci.yml` or `warm-caches.yml` qualify only when the Windows execution
+contracts are preserved. Windows step/runner/matrix changes require that lane.
 
 The existing native/Flutter required check names are always-run routing gates.
 For portable changes they require successful Linux tests and explicitly identify
 Windows jobs as not applicable; for Windows changes they require the corresponding
 Windows jobs. Missing, failed, cancelled or unexpectedly skipped applicable work
 fails the gate. There is no workflow-level path skip or automatic approval/merge.
-The Windows cache-warming workflow on develop is outside this PR verification lane.
+
+After a push to `develop`, `Warm caches` compares the previous and new commit
+trees on Linux. A portable-only push skips the Windows cache job. Nonportable
+pushes still refresh the Windows dependency caches. A scope check error fails
+the workflow before allocating a Windows runner.
 
 ## Application process adapter
 

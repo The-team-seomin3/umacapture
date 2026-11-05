@@ -27,6 +27,18 @@ def routed_workflow():
     )
 
 
+def classify_workflow(before, after, path=pr_scope.WORKFLOW):
+    return pr_scope.classify_paths([path], {path: (before, after)})
+
+
+def warm_workflow():
+    return (
+        "name: Warm caches\non:\n  push:\n    branches: [develop]\n"
+        + pr_scope.WARM_CONCURRENCY
+        + "jobs:\n  warm:\n    runs-on: windows-2022\n    steps:\n      - run: echo warmed\n"
+    )
+
+
 class ScopeTests(unittest.TestCase):
     def test_portable_allowlist_and_empty_are_conservative(self):
         for path in pr_scope.PORTABLE:
@@ -42,7 +54,7 @@ class ScopeTests(unittest.TestCase):
                 self.assertEqual(pr_scope.classify_paths(["tool/kr_factor_ocr/kr_factor_cli.py", path]), "windows")
 
     def test_only_workflow_routing_metadata_can_be_portable(self):
-        self.assertEqual(pr_scope.classify_paths([pr_scope.WORKFLOW], workflow(), routed_workflow()), "portable")
+        self.assertEqual(classify_workflow(workflow(), routed_workflow()), "portable")
         self.assertEqual(pr_scope.windows_contract(workflow()), pr_scope.windows_contract(routed_workflow()))
 
     def test_windows_execution_changes_new_deleted_runner_or_matrix_require_windows(self):
@@ -58,12 +70,12 @@ class ScopeTests(unittest.TestCase):
         ]
         for after in changes:
             with self.subTest(after=after):
-                self.assertEqual(pr_scope.classify_paths([pr_scope.WORKFLOW], workflow(), after), "windows")
+                self.assertEqual(classify_workflow(workflow(), after), "windows")
 
     def test_workflow_failure_duplicate_job_or_missing_blob_is_not_portable(self):
         for after in (None, "jobs: {}", routed_workflow() + "  scope:\n    runs-on: ubuntu-latest\n"):
-            self.assertEqual(pr_scope.classify_paths([pr_scope.WORKFLOW], workflow(), after), "windows")
-        self.assertEqual(pr_scope.classify_paths([pr_scope.WORKFLOW], None, routed_workflow()), "windows")
+            self.assertEqual(classify_workflow(workflow(), after), "windows")
+        self.assertEqual(classify_workflow(None, routed_workflow()), "windows")
 
     def test_job_routing_continuation_and_comments_do_not_change_execution(self):
         after = routed_workflow().replace("    needs: scope", "    needs:\n      - scope", 1)
@@ -81,20 +93,35 @@ class ScopeTests(unittest.TestCase):
         for header in additions:
             with self.subTest(header=header):
                 after = routed_workflow().replace("jobs:\n", header + "jobs:\n", 1)
-                self.assertEqual(pr_scope.classify_paths([pr_scope.WORKFLOW], workflow(), after), "windows")
+                self.assertEqual(classify_workflow(workflow(), after), "windows")
         before = workflow().replace("jobs:\n", "on:\n  pull_request:\n    branches: [develop]\nconcurrency:\n  group: ci\njobs:\n")
         after = before.replace("pull_request:", "workflow_dispatch:")
-        self.assertEqual(pr_scope.classify_paths([pr_scope.WORKFLOW], before, after), "windows")
-        self.assertEqual(pr_scope.classify_paths([pr_scope.WORKFLOW], before, before.replace("group: ci", "group: other")), "windows")
+        self.assertEqual(classify_workflow(before, after), "windows")
+        self.assertEqual(classify_workflow(before, before.replace("group: ci", "group: other")), "windows")
 
     def test_header_comments_and_blank_lines_remain_portable(self):
         after = "# Added explanation\n\n" + routed_workflow().replace("jobs:\n", "# Route by scope\n\njobs:\n", 1)
-        self.assertEqual(pr_scope.classify_paths([pr_scope.WORKFLOW], workflow(), after), "portable")
+        self.assertEqual(classify_workflow(workflow(), after), "portable")
 
     def test_unsupported_or_duplicate_header_mapping_routes_windows(self):
         for header in ("? unsupported\n", "\tbad: value\n", "name: duplicate\n"):
             after = routed_workflow().replace("jobs:\n", header + "jobs:\n", 1)
-            self.assertEqual(pr_scope.classify_paths([pr_scope.WORKFLOW], workflow(), after), "windows")
+            self.assertEqual(classify_workflow(workflow(), after), "windows")
+
+    def test_only_warm_routing_preserves_the_windows_contract(self):
+        before = warm_workflow()
+        after = pr_scope.warm_job_concurrency(before)
+        after = after.replace("    runs-on:", "    needs: scope\n    if: needs.scope.outputs.windows == 'true'\n    runs-on:")
+        after += "  scope:\n    runs-on: ubuntu-latest\n    steps:\n      - run: classify\n"
+        cli = "tool/kr_factor_ocr/kr_factor_cli.py"
+        workflows = {pr_scope.WORKFLOW: (workflow(), routed_workflow()), pr_scope.WARM_WORKFLOW: (before, after)}
+        self.assertEqual(pr_scope.classify_paths([cli, *workflows], workflows), "portable")
+        self.assertEqual(pr_scope.classify_paths([cli, *workflows, "pubspec.lock"], workflows), "windows")
+        for changed in (None, after.replace("echo warmed", "echo changed"),
+                        after.replace("[develop]", "[main]"), after.replace("windows-2022", "windows-2025"),
+                        after.replace("cancel-in-progress: true", "cancel-in-progress: false")):
+            with self.subTest(changed=changed):
+                self.assertEqual(classify_workflow(before, changed, pr_scope.WARM_WORKFLOW), "windows")
 
 
 class GitScopeTests(unittest.TestCase):
@@ -147,6 +174,31 @@ class GitScopeTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             pr_scope.classify_refs("--help", self.base)
 
+    def test_push_compares_endpoint_trees_even_when_refs_diverge(self):
+        self.write("tool/kr_factor_ocr/README.md", "after\n")
+        portable_head = self.commit()
+        self.git("checkout", "--detach", self.base)
+        self.write("windows/runner.cpp", "mixed change\n")
+        previous_push = self.commit()
+        script = str(Path(pr_scope.__file__).resolve())
+        args = [sys.executable, "-B", script, "classify", "--base", previous_push, "--head", portable_head]
+        for flags, expected in (([], "portable"), (["--push"], "windows")):
+            result = subprocess.check_output([*args, *flags], cwd=self.root)
+            self.assertEqual(json.loads(result)["lane"], expected)
+
+    def test_portable_merge_tree_skips_warming(self):
+        branch = self.git("symbolic-ref", "--short", "HEAD")
+        self.git("checkout", "-qb", "portable")
+        self.write("tool/kr_factor_ocr/README.md", "after\n")
+        self.commit()
+        self.git("checkout", branch)
+        self.git("merge", "--no-ff", "--no-edit", "portable")
+        merge_sha = self.git("rev-parse", "HEAD")
+        result = subprocess.check_output(
+            [sys.executable, "-B", str(Path(pr_scope.__file__).resolve()), "classify",
+             "--push", "--base", self.base, "--head", merge_sha], cwd=self.root)
+        self.assertEqual(json.loads(result)["lane"], "portable")
+
 
 class GateTests(unittest.TestCase):
     def needs(self, lane, context):
@@ -197,6 +249,21 @@ class GateTests(unittest.TestCase):
 
 
 class WorkflowWiringTests(unittest.TestCase):
+    def test_cache_workflow_checks_push_scope_before_allocating_windows(self):
+        path = Path(__file__).resolve().parents[2] / pr_scope.WARM_WORKFLOW
+        header, jobs = path.read_text().split("\njobs:\n")
+        self.assertIn("on:\n  push:\n    branches: [develop]", header)
+        self.assertNotIn("\nconcurrency:", header)
+        scope, warm = jobs.split("\n  warm:\n")
+        self.assertIn("    runs-on: ubuntu-latest", scope)
+        self.assertIn("          fetch-depth: 0", scope)
+        self.assertIn("          BEFORE_SHA: ${{ github.event.before }}", scope)
+        self.assertIn("          AFTER_SHA: ${{ github.event.after }}", scope)
+        self.assertIn('classify --push --base "$BEFORE_SHA" --head "$AFTER_SHA"', scope)
+        self.assertIn("    needs: scope\n    if: needs.scope.outputs.windows == 'true'", warm)
+        self.assertIn("    runs-on: windows-2022", warm)
+        self.assertIn("    concurrency:\n      group: warm-caches-", warm)
+
     def test_actual_workflow_guards_every_windows_job_and_keeps_required_gates(self):
         path = Path(os.environ.get("CI_WORKFLOW_UNDER_TEST", Path(__file__).resolve().parents[2] / ".github/workflows/ci.yml"))
         blocks, current = {}, None
