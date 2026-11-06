@@ -8,6 +8,46 @@ Only factor IDs/stars and existing `metadata.region = "KR"` change. KR denotes
 the Korean game source, adopted by the owner on October 31, 2026. Copied
 non-factor values remain unverified for Korean-client accuracy.
 
+## Portable CLI publication and CI
+
+The Python adapter, configuration/preflight helper, tests and this protocol/manual
+slice run on Linux using saved captures. The Flutter application, Windows runner
+and package build sources are delivered separately. Linux CLI checks do not claim
+Windows GUI, native-plugin or game-capture support.
+
+PR CI first classifies the complete diff. The narrow allowlist in
+`tool/ci/pr_scope.py` runs routing regressions and the pinned Python suite on Linux;
+unknown, mixed, App/native/Windows changes retain the Windows lane. Routing-only
+edits to `ci.yml` or `warm-caches.yml` qualify only when the Windows execution
+contracts are preserved. Windows step/runner/matrix changes require that lane.
+
+The existing native/Flutter required check names are always-run routing gates.
+For portable changes they require successful Linux tests and explicitly identify
+Windows jobs as not applicable; for Windows changes they require the corresponding
+Windows jobs. Missing, failed, cancelled or unexpectedly skipped applicable work
+fails the gate. There is no workflow-level path skip or automatic approval/merge.
+
+After a push to `develop`, `Warm caches` compares the previous and new commit
+trees on Linux. A portable-only push skips the Windows cache job. Nonportable
+pushes still refresh the Windows dependency caches. A scope check error fails
+the workflow before allocating a Windows runner.
+
+## Application process adapter
+
+For the Phase-1 Korean-factor application, use the [JSON process protocol](APP_PROTOCOL.md)
+via `kr_factor_app.py`. It orchestrates actual diagnostics, pinned-master lookup,
+explicit review drafts and the same safe exporter. The original manual CLIs below
+remain supported. The adapter alone is not the complete Windows application or
+a change to Japanese capture/recognition.
+
+For explicit reuse of existing App settings, aggregated read-only prerequisite
+checks and optional private hash/error receipts, use the adapter's `--config`,
+`preflight --for COMMAND` and `--report` options described in
+[the CLI protocol](APP_PROTOCOL.md#explicit-cli-settings-reuse-and-read-only-preflight).
+Direct `--request` calls remain compatible. Preflight does not create a run or
+accept OCR; config/output identities must be supplied explicitly. This local
+source change has not updated an existing Windows package.
+
 ## Inputs and runtime
 
 Use Python 3.12+ with the versions in each script's inline dependency block.
