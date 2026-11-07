@@ -103,11 +103,22 @@ policy, required researcher, storage infrastructure or implementation authorizat
 
 ## Local storage and worktree handoff
 
-For reusable substantive research, use `~/.agents/research/umacapture/issue-<N>/`;
-`~` is the current user's home. Keep its resolved location outside every worktree,
-not a link into one. It is private local data, not committed repo content or a new
-service. A same-user agent derives this location from the issue number; another
-account/machine needs a separately authorized accessible handoff, not a guessed pass.
+Keep reusable research under `issue-<N>/` in a private local research root. Use
+the absolute path set in the host's `UMACAPTURE_RESEARCH_ROOT` when configured.
+Otherwise, use `~/.agents/research/umacapture/`, where `~` is the current user's
+home. If a configured root is unavailable, report it before proceeding. Keep the
+resolved root outside all Git worktrees and reuse it across worktrees on that
+host. The variable helps agents locate evidence. The application reads its
+own saved paths. Access from another account or host requires a separately
+authorized handoff.
+
+- **Relocating a host's research root:** copy the existing issue/run layout and
+  verify relative paths and SHA-256 hashes before switching to the new root.
+  Keep the old copy until the local consumers have been checked. The Korean
+  OCR desktop app is supported on Windows only. Close it before changing any
+  saved absolute input paths that point to the old root, then verify that an
+  existing review can be resumed. Keep host paths and private files out of Git
+  and out of published handoffs.
 
 - **Layout:** `INDEX.md` lists completed runs; each new run gets a unique
   `YYYYMMDDTHHMMSSZ-<agent>-<suffix>/` with `SUMMARY.md` and any needed `evidence/`.
