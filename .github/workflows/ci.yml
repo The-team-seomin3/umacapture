@@ -1,10 +1,11 @@
 name: CI
 
-# A narrow portable CLI diff runs only Linux routing/Python checks. Unknown,
+# Bounded guidance changes run Linux routing/content checks. A narrow portable
+# CLI diff also runs the pinned Python suite. Unknown,
 # mixed, App/native/Windows and Windows execution-contract changes retain the
 # existing Windows jobs. The stable required native/Flutter names are always-run
 # Ubuntu routing gates: they require actual applicable checks and explicitly
-# report Windows work as not applicable for a verified portable-only diff.
+# report Windows work as not applicable for verified guidance/portable diffs.
 # No workflow-level path skip or skip-ci marker is used.
 on:
   pull_request:
@@ -33,14 +34,29 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: python3 tool/ci/pr_scope.py classify --base "$BASE_SHA" --head "$HEAD_SHA"
 
-  cli-tests:
-    name: Portable KR CLI tests (Linux)
+  lightweight-checks:
+    name: Lightweight routing and guidance checks (Linux)
     needs: scope
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Test CI routing and required-gate outcomes
         run: python3 -B -m unittest discover -s tool/ci -v
+      - name: Check changed guidance content and local links
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python3 tool/ci/pr_scope.py check-docs --base "$BASE_SHA" --head "$HEAD_SHA"
+
+  cli-tests:
+    name: Portable KR CLI tests (Linux)
+    needs: scope
+    if: needs.scope.outputs.lane != 'docs'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - name: Set up uv
         uses: astral-sh/setup-uv@v10.3.3
       - name: Test the pinned offline CLI and review/export contracts
@@ -54,12 +70,12 @@ jobs:
 
   native-tests:
     name: Native C++ tests (doctest)
-    needs: [scope, cli-tests, native-tests-windows]
+    needs: [scope, lightweight-checks, cli-tests, native-tests-windows]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Require applicable native or portable checks
+      - name: Require applicable native, guidance or portable checks
         env:
           NEEDS: ${{ toJSON(needs) }}
         run: python3 tool/ci/pr_scope.py gate --context native
@@ -257,15 +273,15 @@ jobs:
           if-no-files-found: warn
 
   # Keep the required name and fail on missing/failed/cancelled applicable work.
-  # Portable-only Windows skips are explicit non-applicability, never test passes.
+  # Guidance/portable Windows skips are explicit non-applicability, never test passes.
   flutter-tests:
     name: Flutter unit/widget tests
-    needs: [scope, cli-tests, flutter-test-shards, flutter-static, flutter-web, browser-tests]
+    needs: [scope, lightweight-checks, cli-tests, flutter-test-shards, flutter-static, flutter-web, browser-tests]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Require applicable Flutter or portable checks
+      - name: Require applicable Flutter, guidance or portable checks
         env:
           NEEDS: ${{ toJSON(needs) }}
         run: python3 tool/ci/pr_scope.py gate --context flutter

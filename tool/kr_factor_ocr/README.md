@@ -21,16 +21,28 @@ unknown, mixed, App/native/Windows changes retain the Windows lane. Routing-only
 edits to `ci.yml` or `warm-caches.yml` qualify only when the Windows execution
 contracts are preserved. Windows step/runner/matrix changes require that lane.
 
+The separate documentation lane is limited to the `Issue context and decision
+continuity` section in `AGENTS.md`, and the `Research handoffs` and `Local storage
+and worktree handoff` sections in `docs/agents/contracts.md`. The rest of each file
+must stay unchanged. Eligible guidance runs standard-library routing/gate tests,
+UTF-8/LF, whitespace, conflict-marker, section and local file-link checks on Linux.
+It skips the pinned OCR/CLI suite and Windows jobs. Deletions, renames, malformed
+sections and product-contract edits retain the applicable conservative route.
+Guidance mixed with CLI or CI-support changes runs the portable suite when all
+changes qualify; mixed product or unknown changes require Windows. Policy and
+specialist review still apply to guidance changes.
+
 The existing native/Flutter required check names are always-run routing gates.
-For portable changes they require successful Linux tests and explicitly identify
-Windows jobs as not applicable; for Windows changes they require the corresponding
+For guidance changes they require successful lightweight checks and explicit
+CLI/Windows skips. For portable changes they require successful Linux tests and
+identify Windows jobs as not applicable; for Windows changes they require the corresponding
 Windows jobs. Missing, failed, cancelled or unexpectedly skipped applicable work
 fails the gate. There is no workflow-level path skip or automatic approval/merge.
 
 After a push to `develop`, `Warm caches` compares the previous and new commit
-trees on Linux. A portable-only push skips the Windows cache job. Nonportable
-pushes still refresh the Windows dependency caches. A scope check error fails
-the workflow before allocating a Windows runner.
+trees on Linux. An eligible guidance-only or portable push skips the Windows
+cache job. Nonportable pushes still refresh the Windows dependency caches. A scope
+check error fails the workflow before allocating a Windows runner.
 
 ## Application process adapter
 
