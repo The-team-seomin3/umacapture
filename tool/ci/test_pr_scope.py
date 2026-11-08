@@ -39,6 +39,103 @@ def warm_workflow():
     )
 
 
+def guidance_text(path="AGENTS.md", value="Guidance before"):
+    if path == "AGENTS.md":
+        return "# Agent guidance\n\n## Protected rules\nKeep product checks.\n\n## Issue context and decision continuity\n" + value + "\n"
+    return ("# Contracts\n\n## Scope and contracts\nKeep product contracts.\n\n"
+            "## Research handoffs\n" + value + "\n\n## Local storage and worktree handoff\nKeep private storage.\n")
+
+
+class GuidanceTests(unittest.TestCase):
+    def test_only_approved_sections_are_docs_and_mixtures_keep_product_checks(self):
+        for path in pr_scope.GUIDANCE:
+            before, after = guidance_text(path), guidance_text(path, "Changed guidance")
+            documents = {path: (before, after)}
+            self.assertEqual(pr_scope.classify_paths([path], documents=documents), "docs")
+            self.assertEqual(pr_scope.classify_paths([path, "tool/kr_factor_ocr/kr_factor_cli.py"], documents=documents), "portable")
+            self.assertEqual(pr_scope.classify_paths([path, "lib/main.dart"], documents=documents), "windows")
+            after = after.replace("Keep product", "Changed product")
+            self.assertEqual(pr_scope.classify_paths([path], documents={path: (before, after)}), "windows")
+
+    def test_adding_issue_continuity_section_to_existing_agents_is_docs(self):
+        before = "# Agent guidance\n\n## Existing rules\nPreserve these.\n"
+        after = before + "\n## Issue context and decision continuity\nNew continuity rules.\n"
+        self.assertEqual(pr_scope.classify_paths(["AGENTS.md"], documents={"AGENTS.md": (before, after)}), "docs")
+
+    def test_docs_with_routing_workflow_are_portable_only_when_windows_unchanged(self):
+        path = "AGENTS.md"
+        documents = {path: (guidance_text(), guidance_text(value="Changed guidance"))}
+        workflows = {pr_scope.WORKFLOW: (workflow(), routed_workflow())}
+        self.assertEqual(pr_scope.classify_paths([path, pr_scope.WORKFLOW], workflows, documents), "portable")
+        workflows[pr_scope.WORKFLOW] = (workflow(), routed_workflow().replace("echo checked", "echo changed"))
+        self.assertEqual(pr_scope.classify_paths([path, pr_scope.WORKFLOW], workflows, documents), "windows")
+
+    def test_unknown_or_consumed_markdown_is_never_docs(self):
+        for path in ("README.md", "assets/news.md", "native/test/README.md", "docs/new.md", "LICENSE.md"):
+            with self.subTest(path=path):
+                self.assertEqual(pr_scope.classify_paths([path]), "windows")
+        for path in ("tool/kr_factor_ocr/README.md", "tool/kr_factor_ocr/APP_PROTOCOL.md"):
+            self.assertEqual(pr_scope.classify_paths([path]), "portable")
+
+    def test_missing_blobs_deleted_sections_and_ambiguous_structure_are_windows(self):
+        before = guidance_text()
+        variants = (
+            None, "", before + "\n## Issue context and decision continuity\nDuplicate\n",
+            before + "\n# New title\n", before + "\n```\nUnclosed example\n",
+            before.replace("## Protected rules", "  ## Protected rules"),
+            before.replace("## Protected rules", "Protected rules\n-------------"),
+            before.split("## Issue context", 1)[0],
+            before.replace("\n", "\r\n"),
+        )
+        for after in variants:
+            with self.subTest(after=after):
+                self.assertEqual(pr_scope.classify_paths(["AGENTS.md"], documents={"AGENTS.md": (before, after)}), "windows")
+        self.assertEqual(pr_scope.classify_paths(["AGENTS.md"]), "windows")
+        self.assertEqual(pr_scope.classify_paths(["AGENTS.md"], documents={"AGENTS.md": (None, before)}), "windows")
+
+    def test_fenced_headings_and_link_templates_are_content(self):
+        text = guidance_text(value="Example\n```text\n## Not a section\n[summary](<run-id>/SUMMARY.md)\n````")
+        self.assertTrue(pr_scope.guidance_only("AGENTS.md", guidance_text(), text))
+        pr_scope.check_guidance(text, "AGENTS.md", set())
+
+    def test_reference_links_and_unsupported_syntax_are_not_silently_ignored(self):
+        pr_scope.check_guidance(guidance_text(value="[guide][target]\n\n[target]: guide.md"), "AGENTS.md", {"guide.md"})
+        for value in ("[guide][missing]", "[target]: missing.md", "[bad](missing file.md)",
+                      "[bad](missing.md", '<a href="missing.md">bad</a>',
+                      "[target]: missing.md\n[TARGET]: https://example.invalid"):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    pr_scope.check_guidance(guidance_text(value=value), "AGENTS.md", set())
+
+    def test_existing_guidance_links_and_issue37_section_addition_are_valid(self):
+        root = Path(__file__).resolve().parents[2]
+        raw = subprocess.check_output(["git", "ls-tree", "-r", "-t", "--name-only", "-z", "HEAD"], cwd=root)
+        files = {p.decode() for p in raw.split(b"\0") if p}
+        agents = (root / "AGENTS.md").read_text()
+        if "## Issue context and decision continuity" not in agents:
+            agents += "\n## Issue context and decision continuity\nUse verified current context.\n"
+        pr_scope.check_guidance(agents, "AGENTS.md", files)
+        pr_scope.check_guidance((root / "docs/agents/contracts.md").read_text(), "docs/agents/contracts.md", files)
+
+    def test_local_links_use_document_directory_and_ignore_anchors_and_remote_urls(self):
+        text = guidance_text("docs/agents/contracts.md", "[local](../../README.md#section) [self](#section) [remote](https://example.invalid/missing)")
+        pr_scope.check_guidance(text, "docs/agents/contracts.md", {"README.md"})
+        pr_scope.check_guidance(guidance_text(value="[directory](native/test)"), "AGENTS.md", {"native/test"})
+        for target in ("missing.md", "../../../private.md", "/absolute.md", "../../missing%20name.md"):
+            with self.subTest(target=target):
+                with self.assertRaises(ValueError):
+                    pr_scope.check_guidance(guidance_text(value=f"[bad]({target})"), "AGENTS.md", set())
+
+    def test_checker_rejects_conflicts_whitespace_bad_encoding_structure_and_newline(self):
+        for text in (guidance_text() + "<<<<<<< HEAD\n", guidance_text(value="bad "),
+                     guidance_text().replace("\n", "\r\n"), "\ufeff" + guidance_text(),
+                     guidance_text(value="bad\x00text"), guidance_text().rstrip("\n"),
+                     guidance_text() + "## Protected rules\nDuplicate\n"):
+            with self.subTest(text=text):
+                with self.assertRaises(ValueError):
+                    pr_scope.check_guidance(text, "AGENTS.md", set())
+
+
 class ScopeTests(unittest.TestCase):
     def test_portable_allowlist_and_empty_are_conservative(self):
         for path in pr_scope.PORTABLE:
@@ -130,6 +227,7 @@ class GitScopeTests(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
         self.git("init", "-q")
+        (self.root / ".git/info/exclude").write_text("output\n")
         self.write("tool/kr_factor_ocr/README.md", "before\n")
         self.write("outside.txt", "move me\n")
         self.base = self.commit()
@@ -199,23 +297,106 @@ class GitScopeTests(unittest.TestCase):
              "--push", "--base", self.base, "--head", merge_sha], cwd=self.root)
         self.assertEqual(json.loads(result)["lane"], "portable")
 
+    def test_docs_pr_push_merge_and_checker_use_the_exact_guidance_diff(self):
+        self.write("AGENTS.md", guidance_text())
+        self.base = self.commit()
+        self.write("AGENTS.md", guidance_text(value="Updated continuity"))
+        head = self.commit()
+        result, output = self.classify(head)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["lane"], "docs")
+        self.assertEqual(output.read_text(), "lane=docs\nwindows=false\n")
+        script = str(Path(pr_scope.__file__).resolve())
+        for command in ("classify", "check-docs"):
+            value = subprocess.run([sys.executable, "-B", script, command, "--push", "--base", self.base,
+                                    "--head", head], cwd=self.root, capture_output=True, text=True)
+            self.assertEqual(value.returncode, 0, value.stderr)
+        self.git("checkout", "-qb", "docs-target", self.base)
+        self.git("merge", "--no-ff", "--no-edit", head)
+        merge = self.git("rev-parse", "HEAD")
+        value = subprocess.check_output([sys.executable, "-B", script, "classify", "--push", "--base", self.base,
+                                         "--head", merge], cwd=self.root)
+        self.assertEqual(json.loads(value)["lane"], "docs")
+
+    def test_added_deleted_or_renamed_guidance_file_is_not_docs(self):
+        self.write("AGENTS.md", guidance_text())
+        added = self.commit()
+        self.assertEqual(json.loads(self.classify(added)[0].stdout)["lane"], "windows")
+        self.base = added
+        self.git("mv", "AGENTS.md", "elsewhere.md")
+        renamed = self.commit()
+        self.assertEqual(json.loads(self.classify(renamed)[0].stdout)["lane"], "windows")
+        self.git("checkout", "--detach", added)
+        (self.root / "AGENTS.md").unlink()
+        deleted = self.commit()
+        self.assertEqual(json.loads(self.classify(deleted)[0].stdout)["lane"], "windows")
+
+    def test_executable_guidance_is_not_docs(self):
+        self.write("AGENTS.md", guidance_text())
+        self.base = self.commit()
+        self.git("update-index", "--chmod=+x", "AGENTS.md")
+        self.git("commit", "-qm", "Executable Markdown fixture")
+        head = self.git("rev-parse", "HEAD")
+        self.assertEqual(json.loads(self.classify(head)[0].stdout)["lane"], "windows")
+
+    def test_unrelated_product_whitespace_is_not_a_documentation_check(self):
+        self.write("product.cpp", "trailing whitespace  \n")
+        head = self.commit()
+        result = subprocess.run([sys.executable, "-B", str(Path(pr_scope.__file__).resolve()), "check-docs",
+                                 "--base", self.base, "--head", head], cwd=self.root, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("not applicable", result.stdout)
+
+    def test_pr_blob_comparison_uses_merge_base_and_push_keeps_divergent_changes(self):
+        self.write("AGENTS.md", guidance_text())
+        common = self.commit()
+        self.write("AGENTS.md", guidance_text(value="Docs branch"))
+        head = self.commit()
+        self.git("checkout", "--detach", common)
+        self.write("AGENTS.md", guidance_text().replace("Keep product checks.", "Different protected rules."))
+        self.base = self.commit()
+        result, _ = self.classify(head)
+        self.assertEqual(json.loads(result.stdout)["lane"], "docs")
+        result = subprocess.check_output([sys.executable, "-B", str(Path(pr_scope.__file__).resolve()), "classify",
+                                          "--push", "--base", self.base, "--head", head], cwd=self.root)
+        self.assertEqual(json.loads(result)["lane"], "windows")
+
+    def test_checker_reports_missing_link_and_invalid_utf8_without_network(self):
+        self.write("AGENTS.md", guidance_text())
+        self.base = self.commit()
+        script = str(Path(pr_scope.__file__).resolve())
+        for contents in (guidance_text(value="[bad](missing.md)").encode(), b"\xff"):
+            (self.root / "AGENTS.md").write_bytes(contents)
+            head = self.commit()
+            result = subprocess.run([sys.executable, "-B", script, "check-docs", "--base", self.base,
+                                     "--head", head], cwd=self.root, capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+
+    def test_unavailable_and_empty_diff_do_not_claim_docs_success(self):
+        result, _ = self.classify(self.base)
+        self.assertEqual(json.loads(result.stdout)["lane"], "windows")
+        result, _ = self.classify("f" * 40)
+        self.assertNotEqual(result.returncode, 0)
+
 
 class GateTests(unittest.TestCase):
     def needs(self, lane, context):
         return {"scope": {"result": "success", "outputs": {"lane": lane}},
-                "cli-tests": {"result": "success"},
-                **{name: {"result": "skipped" if lane == "portable" else "success"}
+                "lightweight-checks": {"result": "success"},
+                "cli-tests": {"result": "skipped" if lane == "docs" else "success"},
+                **{name: {"result": "success" if lane == "windows" else "skipped"}
                    for name in pr_scope.WINDOWS_JOBS[context]}}
 
     def test_both_lanes_and_contexts_have_explicit_honest_success(self):
         for context in pr_scope.WINDOWS_JOBS:
             self.assertIn("not applicable", pr_scope.verify_gate(self.needs("portable", context), context))
+            self.assertIn("Documentation checks passed", pr_scope.verify_gate(self.needs("docs", context), context))
             self.assertIn("Windows work", pr_scope.verify_gate(self.needs("windows", context), context))
 
     def test_failed_missing_cancelled_or_skipped_prerequisites_fail(self):
-        for lane in ("portable", "windows"):
+        for lane in ("docs", "portable", "windows"):
             for context in pr_scope.WINDOWS_JOBS:
-                for name in ("scope", "cli-tests", *pr_scope.WINDOWS_JOBS[context]):
+                for name in ("scope", "lightweight-checks", "cli-tests", *pr_scope.WINDOWS_JOBS[context]):
                     expected = self.needs(lane, context)[name]["result"]
                     for state in (None, "failure", "cancelled", "skipped", "success"):
                         if state == expected:
@@ -289,12 +470,18 @@ class WorkflowWiringTests(unittest.TestCase):
             need_lines = [line for line in lines if line.startswith("    needs:")]
             self.assertEqual(len(need_lines), 1)
             needs = {item.strip() for item in need_lines[0].split(":", 1)[1].strip().strip("[]").split(",")}
-            self.assertEqual(needs, {"scope", "cli-tests", *pr_scope.WINDOWS_JOBS[context]})
+            self.assertEqual(needs, {"scope", "lightweight-checks", "cli-tests", *pr_scope.WINDOWS_JOBS[context]})
             self.assertIn("    if: always()", lines)
             self.assertIn("    runs-on: ubuntu-latest", lines)
             self.assertIn(f"        run: python3 tool/ci/pr_scope.py gate --context {context}", lines)
         scope = "\n".join(blocks["scope"])
         self.assertRegex(scope, r"uses: actions/checkout@[^\n]+\n        with:\n          fetch-depth: 0")
+        lightweight = "\n".join(blocks["lightweight-checks"])
+        self.assertIn("    needs: scope", lightweight)
+        self.assertIn("          fetch-depth: 0", lightweight)
+        self.assertIn('check-docs --base "$BASE_SHA" --head "$HEAD_SHA"', lightweight)
+        self.assertIn("    needs: scope", blocks["cli-tests"])
+        self.assertIn("    if: needs.scope.outputs.lane != 'docs'", blocks["cli-tests"])
 
 
 if __name__ == "__main__":

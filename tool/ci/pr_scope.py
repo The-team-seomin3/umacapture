@@ -5,9 +5,11 @@ import argparse
 import json
 import os
 from pathlib import Path
+import posixpath
 import re
 import subprocess
 import sys
+from urllib.parse import unquote, urlsplit
 
 WORKFLOW = ".github/workflows/ci.yml"
 WARM_WORKFLOW = ".github/workflows/warm-caches.yml"
@@ -20,6 +22,10 @@ PORTABLE = {
     "tool/kr_factor_ocr/test_kr_factor_ocr.py", "tool/kr_factor_ocr/test_kr_factor_export.py",
     "tool/kr_factor_ocr/APP_PROTOCOL.md", "tool/kr_factor_ocr/README.md",
     "test/fixtures/chara_detail_record.json", "tool/ci/pr_scope.py", "tool/ci/test_pr_scope.py",
+}
+GUIDANCE = {
+    "AGENTS.md": {"Issue context and decision continuity"},
+    "docs/agents/contracts.md": {"Research handoffs", "Local storage and worktree handoff"},
 }
 WINDOWS_JOBS = {
     "native": ("native-tests-windows",),
@@ -108,11 +114,75 @@ def warm_job_concurrency(text):
     return text
 
 
-def classify_paths(paths, workflows=None):
+def unfenced_lines(lines):
+    """Yield original positions and text outside canonical Markdown fences."""
+    fence = None
+    visible = []
+    for index, line in enumerate(lines):
+        stripped = line.rstrip("\n")
+        marker = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", stripped)
+        if fence is not None:
+            if marker and marker[1][0] == fence[0] and len(marker[1]) >= len(fence) and not marker[2].strip():
+                fence = None
+            continue
+        if marker:
+            fence = marker[1]
+            continue
+        visible.append((index, line))
+    if fence is not None:
+        raise ValueError("Unclosed guidance code fence")
+    return visible
+
+
+def guidance_sections(text, path):
+    """Return protected text and allowed sections for canonical ATX guidance."""
+    if not isinstance(text, str) or "\r" in text or "\x00" in text or text.startswith("\ufeff"):
+        raise ValueError("Guidance must be UTF-8/LF text without a BOM or NUL")
+    lines = text.splitlines(keepends=True)
+    headings, seen, title_count = [], set(), 0
+    for index, line in unfenced_lines(lines):
+        stripped = line.rstrip("\n")
+        if re.fullmatch(r" {0,3}(?:=+|-+)\s*", stripped) or re.match(r"^ {1,3}#{1,6}(?:\s|$)", stripped):
+            raise ValueError("Unsupported guidance heading")
+        if re.match(r"^#(?:\s|$)", stripped):
+            title_count += 1
+        if re.match(r"^##(?:\s|$)", stripped):
+            match = re.fullmatch(r"## ([^#\n]+)", stripped)
+            if not match or match[1].strip() != match[1] or match[1] in seen:
+                raise ValueError("Ambiguous guidance section")
+            seen.add(match[1])
+            headings.append((index, match[1]))
+    if title_count != 1:
+        raise ValueError("Ambiguous document title")
+    protected = lines[:headings[0][0]] if headings else list(lines)
+    sections = {}
+    for position, (start, name) in enumerate(headings):
+        end = headings[position + 1][0] if position + 1 < len(headings) else len(lines)
+        content = "".join(lines[start:end])
+        if name in GUIDANCE[path]:
+            sections[name] = content
+        else:
+            protected.extend(lines[start:end])
+    return "".join(protected).rstrip("\n"), sections
+
+
+def guidance_only(path, before, after):
+    old_protected, old_sections = guidance_sections(before, path)
+    new_protected, new_sections = guidance_sections(after, path)
+    return bool(new_sections) and old_sections.keys() <= new_sections.keys() and old_protected == new_protected
+
+
+def classify_paths(paths, workflows=None, documents=None):
     paths = set(paths)
-    unknown = paths - PORTABLE - ROUTED_WORKFLOWS
+    unknown = paths - PORTABLE - ROUTED_WORKFLOWS - GUIDANCE.keys()
     if not paths or unknown:
         return "windows"
+    for path in paths & GUIDANCE.keys():
+        try:
+            if not guidance_only(path, *(documents or {})[path]):
+                return "windows"
+        except (KeyError, TypeError, ValueError):
+            return "windows"
     for path in paths & ROUTED_WORKFLOWS:
         try:
             before, after = (workflows or {})[path]
@@ -122,14 +192,14 @@ def classify_paths(paths, workflows=None):
                 return "windows"
         except (AttributeError, KeyError, TypeError, ValueError):
             return "windows"
-    return "portable"
+    return "docs" if paths <= GUIDANCE.keys() else "portable"
 
 
 def git(*args):
     return subprocess.check_output(["git", *args])
 
 
-def classify_refs(base, head, *, push=False):
+def changed_paths(base, head, *, push=False):
     for ref in (base, head):
         if not re.fullmatch(r"(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})", ref):
             raise ValueError("Explicit full commit SHAs are required")
@@ -137,34 +207,110 @@ def classify_refs(base, head, *, push=False):
     # Rename detection is disabled: a move from outside the allowlist stays visible.
     diff_range = base + (".." if push else "...") + head
     raw = git("diff", "--no-renames", "--name-only", "-z", diff_range)
-    paths = [p.decode("utf-8") for p in raw.split(b"\0") if p]
-    workflows = {}
-    for path in set(paths) & ROUTED_WORKFLOWS:
+    return [p.decode("utf-8") for p in raw.split(b"\0") if p]
+
+
+def changed_texts(paths, base, head):
+    texts = {}
+    for path in paths:
         try:
             before = git("show", base + ":" + path).decode("utf-8")
             after = git("show", head + ":" + path).decode("utf-8")
         except (subprocess.CalledProcessError, UnicodeDecodeError):
             continue
-        workflows[path] = (before, after)
-    return classify_paths(paths, workflows), paths
+        texts[path] = (before, after)
+    return texts
+
+
+def classify_refs(base, head, *, push=False):
+    paths = changed_paths(base, head, push=push)
+    comparison_base = base if push else git("merge-base", base, head).decode().strip()
+    workflows = changed_texts(set(paths) & ROUTED_WORKFLOWS, comparison_base, head)
+    documents = changed_texts(set(paths) & GUIDANCE.keys(), comparison_base, head)
+    for path in list(documents):
+        if any(git("ls-tree", ref, "--", path).split()[0] != b"100644" for ref in (comparison_base, head)):
+            del documents[path]
+    return classify_paths(paths, workflows, documents), paths
+
+
+def check_guidance(text, path, files):
+    """Check text and local inline links without fetching URLs or reading evidence."""
+    guidance_sections(text, path)
+    if not text.endswith("\n"):
+        raise ValueError(f"{path}: missing final newline")
+    for number, line in enumerate(text.splitlines(), 1):
+        if line.rstrip(" \t") != line or re.match(r"^(?:<{7}|={7}|>{7})(?:\s|$)", line):
+            raise ValueError(f"{path}:{number}: whitespace or conflict marker")
+    without_code = "".join(line for _, line in unfenced_lines(text.splitlines(keepends=True)))
+    without_code = re.sub(r"`+[^`\n]*`+", "", without_code)
+    if re.search(r"<(?:a|img)\b", without_code, re.IGNORECASE):
+        raise ValueError(f"{path}: HTML links are outside the supported guidance syntax")
+    links = list(re.finditer(r"\]\(([^)\n]*)\)", without_code))
+    if without_code.count("](") != len(links):
+        raise ValueError(f"{path}: unsupported inline link syntax")
+    definitions = {}
+    for label, value in re.findall(r"(?m)^ {0,3}\[([^\]\n]+)\]:[ \t]*(.*)$", without_code):
+        key = " ".join(label.casefold().split())
+        if key in definitions:
+            raise ValueError(f"{path}: duplicate link reference {label}")
+        definitions[key] = value
+    destinations = [match[1] for match in links] + list(definitions.values())
+    for label, reference in re.findall(r"\[([^\]\n]+)\]\[([^\]\n]*)\]", without_code):
+        key = " ".join((reference or label).casefold().split())
+        if key not in definitions:
+            raise ValueError(f"{path}: undefined link reference {reference or label}")
+    for raw in destinations:
+        match = re.fullmatch(r"\s*(?:<([^>\n]+)>|([^\s<>]+))(?:\s+(?:\"[^\"\n]*\"|'[^'\n]*'))?\s*", raw)
+        if not match:
+            raise ValueError(f"{path}: unsupported link destination {raw}")
+        destination = match[1] or match[2]
+        url = urlsplit(destination)
+        if url.scheme or url.netloc or not url.path:
+            continue
+        if any(character in destination for character in "\\()"):
+            raise ValueError(f"{path}: unsupported local link destination {destination}")
+        target = posixpath.normpath(posixpath.join(posixpath.dirname(path), unquote(url.path)))
+        if target.startswith("../") or target.startswith("/") or target not in files:
+            raise ValueError(f"{path}: missing or unsupported local link target {destination}")
+
+
+def check_docs(base, head, *, push=False):
+    paths = set(changed_paths(base, head, push=push)) & GUIDANCE.keys()
+    if not paths:
+        return "No changed guidance files; documentation checks are not applicable."
+    git("diff", "--check", base + (".." if push else "...") + head, "--", *sorted(paths))
+    files = {p.decode("utf-8") for p in git("ls-tree", "-r", "-t", "--name-only", "-z", head).split(b"\0") if p}
+    for path in sorted(paths):
+        try:
+            text = git("show", head + ":" + path).decode("utf-8")
+        except subprocess.CalledProcessError:
+            # A deletion cannot select docs; product lanes retain their own checks.
+            continue
+        check_guidance(text, path, files)
+    return "Changed guidance UTF-8/LF, structure, whitespace and local file links passed."
 
 
 def verify_gate(needs, context):
     if not isinstance(needs, dict) or context not in WINDOWS_JOBS:
         raise ValueError("Invalid gate input")
-    for name in ("scope", "cli-tests"):
+    for name in ("scope", "lightweight-checks"):
         if not isinstance(needs.get(name), dict) or needs[name].get("result") != "success":
             raise ValueError(f"{name} did not succeed")
     outputs = needs["scope"].get("outputs")
     if not isinstance(outputs, dict):
         raise ValueError("Missing or invalid scope outputs")
     lane = outputs.get("lane")
-    if lane not in ("portable", "windows"):
+    if lane not in ("docs", "portable", "windows"):
         raise ValueError("Missing or unknown scope lane")
-    expected = "skipped" if lane == "portable" else "success"
+    expected_cli = "skipped" if lane == "docs" else "success"
+    if not isinstance(needs.get("cli-tests"), dict) or needs["cli-tests"].get("result") != expected_cli:
+        raise ValueError(f"cli-tests must be {expected_cli} for {lane} routing")
+    expected = "success" if lane == "windows" else "skipped"
     for name in WINDOWS_JOBS[context]:
         if not isinstance(needs.get(name), dict) or needs[name].get("result") != expected:
             raise ValueError(f"{name} must be {expected} for {lane} routing")
+    if lane == "docs":
+        return "Documentation checks passed; CLI and Windows product work are not applicable and were skipped."
     if lane == "portable":
         return "Portable CLI tests passed; Windows work is not applicable and was skipped."
     return f"Required {context} Windows work and Linux CLI tests passed."
@@ -177,6 +323,10 @@ def main():
     scope.add_argument("--base", required=True)
     scope.add_argument("--head", required=True)
     scope.add_argument("--push", action="store_true", help="Compare the before and after push trees directly")
+    docs = commands.add_parser("check-docs")
+    docs.add_argument("--base", required=True)
+    docs.add_argument("--head", required=True)
+    docs.add_argument("--push", action="store_true")
     gate = commands.add_parser("gate")
     gate.add_argument("--context", required=True, choices=tuple(WINDOWS_JOBS))
     args = parser.parse_args()
@@ -186,6 +336,8 @@ def main():
         if os.environ.get("GITHUB_OUTPUT"):
             with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as stream:
                 stream.write(f"lane={lane}\nwindows={'true' if lane == 'windows' else 'false'}\n")
+    elif args.command == "check-docs":
+        print(check_docs(args.base, args.head, push=args.push))
     else:
         message = verify_gate(json.loads(os.environ["NEEDS"]), args.context)
         print(message)

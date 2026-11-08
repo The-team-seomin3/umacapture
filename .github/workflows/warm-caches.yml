@@ -1,7 +1,8 @@
 name: Warm caches
 
 # Classify each develop push on Linux. Only nonportable changes refresh the dependency
-# caches that ci.yml's pull-request runs restore. PR CI handles test execution.
+# caches that ci.yml's pull-request runs restore. Eligible guidance and portable
+# CLI pushes skip Windows warming. PR CI handles test execution.
 #
 # WHY THE CACHES STILL NEED A RUN ON develop. A run can restore caches created on its own branch or
 # on the default branch, and a pull request's run also those of its base branch; a cache a pull
