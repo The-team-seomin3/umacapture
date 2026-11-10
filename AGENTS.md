@@ -114,3 +114,41 @@ capture/record contracts, not a requirement to reopen the PoCs or change native 
 Team routing applies across this repository; the workflow-specific rules above retain their PoC/MVP scope.
 Existing technical manuals supply their own detail; current source/config owns
 pins and generated outputs. No Claude loader or skill installation is required.
+
+## Issue context and decision continuity
+
+Use these repository-local rules for implementation, triage and independent PR
+review. They adopt the owner's 2026-11-07 direction to replace repeated full-history
+issue reading with verified context refresh, including when a referenced workflow
+requires reading the entire issue. Read applicable repository instructions first.
+
+- In a fresh session, after a handoff, or without a reliable previously inspected
+  baseline, fetch the current issue body, the complete comment collection and
+  material linked decisions, prerequisites and PR revisions. Read all currently
+  governing goals, requirements, constraints, acceptance criteria and approval or
+  deferral evidence. Follow earlier history needed to establish their authority.
+- During a reliable continuation, refresh those actual contents and compare them
+  with the inspected baseline, including edited comments and linked sources.
+  Reuse unchanged verified context and read changes plus their consequences.
+  Timestamps, comment counts, a synopsis or another agent's summary alone cannot
+  establish unchanged meaning or authority. No persistent cache is required.
+- If pagination or access is incomplete, a baseline is lost during compaction,
+  evidence conflicts, a decision is ambiguous, or a linked PR revision is stale,
+  expand into the necessary historical sources before affected action. Treat
+  unavailable evidence as unknown and resolve concrete authority gaps. Recheck
+  current scope, approvals and exact PR HEAD/base before governed actions.
+- Keep a dated current synopsis with links to completed work, live requirements,
+  accepted limits, deferrals and actual remainder. Record material owner changes
+  in a concise dated decision comment identifying the source, old and new rule,
+  affected work and approval boundary, then link it from the synopsis and affected
+  active PR. Distinguish faithful owner summaries from proposals. Preserve earlier
+  decisions and merged history; routine wording fixes need no decision record.
+- Keep owner decisions on their owning issue and delivery/review evidence on the
+  scoped PR. Preserve independent review, existing publication and unchanged-HEAD
+  rules, team channels, authorization and installed-settings protections. Split
+  work only for an independently actionable nonduplicate outcome.
+- Store supplemental artifacts in an already authorized private Drive destination
+  only after checking the full repository identity, repository-folder mapping and
+  access/write rights. Keep private paths, folder IDs and raw account data out of
+  public text. Preserve original evidence and distinguish receipt from acceptance.
+  This procedure requires no Drive mirror, automatic upload or status registry.
