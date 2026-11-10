@@ -9,7 +9,7 @@ name: CI
 # No workflow-level path skip or skip-ci marker is used.
 on:
   pull_request:
-    branches: [develop]
+    branches: [master]
 
 # One in-flight run per ref; a new push cancels the previous run.
 concurrency:
