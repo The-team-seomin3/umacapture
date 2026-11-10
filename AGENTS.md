@@ -33,8 +33,8 @@ publication, merge, deployment or private-data access authority.
 ## Working rules
 
 - Converse with the user in the user's language; repository artifacts are English, except localized
-  runtime strings. Use the prepared task branch and PR to `develop`; no direct
-  `develop` commits/pushes. Commit/push only when requested, including a requested PR.
+  runtime strings. Use the prepared task branch and PR to `master`; no direct
+  `master` commits/pushes. Commit/push only when requested, including a requested PR.
 - Inspect symbols, callers and matching tests progressively. Read the C++ builders
   before generated layout JSON; inspect disputed generated fields when needed.
   A PR review starts with the exact diff and affected contracts, not a merge decision.

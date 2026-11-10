@@ -19,7 +19,10 @@ PR CI first classifies the complete diff. The narrow allowlist in
 `tool/ci/pr_scope.py` runs routing regressions and the pinned Python suite on Linux;
 unknown, mixed, App/native/Windows changes retain the Windows lane. Routing-only
 edits to `ci.yml` or `warm-caches.yml` qualify only when the Windows execution
-contracts are preserved. Windows step/runner/matrix changes require that lane.
+contracts are preserved. The exact legacy `develop` to `master` event targets
+and corresponding contribution-rule branch reference can migrate on Linux.
+Other event/header changes and Windows step/runner/matrix changes require the
+Windows lane.
 
 The separate documentation lane is limited to the `Issue context and decision
 continuity` section in `AGENTS.md`, and the `Research handoffs` and `Local storage
@@ -39,7 +42,7 @@ identify Windows jobs as not applicable; for Windows changes they require the co
 Windows jobs. Missing, failed, cancelled or unexpectedly skipped applicable work
 fails the gate. There is no workflow-level path skip or automatic approval/merge.
 
-After a push to `develop`, `Warm caches` compares the previous and new commit
+After a push to `master`, `Warm caches` compares the previous and new commit
 trees on Linux. An eligible guidance-only or portable push skips the Windows
 cache job. Nonportable pushes still refresh the Windows dependency caches. A scope
 check error fails the workflow before allocating a Windows runner.

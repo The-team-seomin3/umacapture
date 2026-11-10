@@ -27,6 +27,14 @@ GUIDANCE = {
     "AGENTS.md": {"Issue context and decision continuity"},
     "docs/agents/contracts.md": {"Research handoffs", "Local storage and worktree handoff"},
 }
+MASTER_MIGRATIONS = {
+    WORKFLOW: ("on:\n  pull_request:\n    branches: [develop]\n", "on:\n  pull_request:\n    branches: [master]\n"),
+    WARM_WORKFLOW: ("on:\n  push:\n    branches: [develop]\n", "on:\n  push:\n    branches: [master]\n"),
+    "AGENTS.md": (
+        "PR to `develop`; no direct\n  `develop` commits/pushes.",
+        "PR to `master`; no direct\n  `master` commits/pushes.",
+    ),
+}
 WINDOWS_JOBS = {
     "native": ("native-tests-windows",),
     "flutter": ("flutter-test-shards", "flutter-static", "flutter-web", "browser-tests"),
@@ -166,9 +174,19 @@ def guidance_sections(text, path):
     return "".join(protected).rstrip("\n"), sections
 
 
+def master_branch_baseline(before, after, path):
+    """Recognize only the exact forward migration of canonical branch metadata."""
+    old, new = MASTER_MIGRATIONS[path]
+    if before.count(old) != 1 or after.count(new) != 1 or old in after:
+        return before
+    return before.replace(old, new, 1)
+
+
 def guidance_only(path, before, after):
     old_protected, old_sections = guidance_sections(before, path)
     new_protected, new_sections = guidance_sections(after, path)
+    if path in MASTER_MIGRATIONS:
+        old_protected = master_branch_baseline(old_protected, new_protected, path)
     return bool(new_sections) and old_sections.keys() <= new_sections.keys() and old_protected == new_protected
 
 
@@ -188,6 +206,7 @@ def classify_paths(paths, workflows=None, documents=None):
             before, after = (workflows or {})[path]
             if path == WARM_WORKFLOW:
                 before = warm_job_concurrency(before)
+            before = master_branch_baseline(before, after, path)
             if windows_contract(before) != windows_contract(after):
                 return "windows"
         except (AttributeError, KeyError, TypeError, ValueError):

@@ -1,13 +1,13 @@
 name: Warm caches
 
-# Classify each develop push on Linux. Only nonportable changes refresh the dependency
+# Classify each master push on Linux. Only nonportable changes refresh the dependency
 # caches that ci.yml's pull-request runs restore. Eligible guidance and portable
 # CLI pushes skip Windows warming. PR CI handles test execution.
 #
-# WHY THE CACHES STILL NEED A RUN ON develop. A run can restore caches created on its own branch or
+# WHY THE CACHES STILL NEED A RUN ON master. A run can restore caches created on its own branch or
 # on the default branch, and a pull request's run also those of its base branch; a cache a pull
 # request's run creates is scoped to that pull request's merge ref and no other pull request can
-# restore it. Caches unused for 7 days are evicted. So without a run on develop, each pull request's
+# restore it. Caches unused for 7 days are evicted. So without a run on master, each pull request's
 # first run would miss and rebuild every cache (the Flutter SDK alone is ~1.8 GB), and a pubspec.lock
 # change would leave every later pull request missing the pub cache. A push that finds a cache
 # already saved restores it, which is what keeps it from being evicted, and saves nothing.
@@ -26,7 +26,7 @@ name: Warm caches
 # `Set up uv`) holds nothing, because the scripts it runs are stdlib-only.
 on:
   push:
-    branches: [develop]
+    branches: [master]
 
 jobs:
   scope:
@@ -38,7 +38,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Classify the complete develop push
+      - name: Classify the complete master push
         id: classify
         env:
           BEFORE_SHA: ${{ github.event.before }}
