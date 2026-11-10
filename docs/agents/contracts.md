@@ -93,13 +93,12 @@ policy, required researcher, storage infrastructure or implementation authorizat
    by unapproved scope or inaccessible/contradictory evidence and escalate concrete
    options. Briefly link findings used, actual verification and consequential adopted,
    partially adopted, deferred, already resolved or insufficient-evidence dispositions.
-5. **Delegate only when useful:** compare research + coordination/handoff + verification
-   + expected rework with direct investigation or a deterministic script. Use measured
-   cost when available, otherwise qualitative judgment, never invented savings.
-   Antigravity can supply reusable observations/reference data, otherwise inaccessible
-   inputs or substantive repeatable comparison. Prefer direct work for trivial lookups,
-   small schema lists, tightly coupled design or research needing full repetition.
-   A comment does not start/wake an idle agent, and a researcher is not a mandatory gate.
+5. **Research allocation:** apply the app-global delegation policy, weighing research,
+   coordination/handoff, verification and expected rework against direct investigation
+   or a deterministic script. Use measured cost when available, otherwise qualitative
+   judgment; invent no savings. Antigravity can supply reusable observations/reference
+   data, otherwise inaccessible inputs or substantive repeatable comparison. A comment
+   does not start/wake an idle agent, and a researcher is not a mandatory gate.
 
 ## Local storage and worktree handoff
 

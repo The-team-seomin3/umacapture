@@ -28,10 +28,9 @@ These domains do not give one team exclusive ownership of whole directories.
 - Keep guidance and work-status references consistent when the authorized change
   affects them. Distinguish source publication/merge, actual runtime evidence,
   artifact delivery and owner acceptance; do not convert one into another.
-- Delegate bounded implementation or time-consuming validation when useful, with
-  an independent task/agent worktree and clear outcome. Review worker evidence
-  before integration; avoid concurrent edits to the same files. Simple work may
-  be handled directly. Each team remains responsible for its own validation.
+- Apply the app-global delegation policy within existing team responsibilities,
+  retaining bounded tasks, isolated editing and manager verification before
+  integration. Each team remains responsible for its own validation.
 - Resolve routine in-scope choices and record material decisions in the linked
   issue under applicable policy. Escalate only missing authority or decisions
   that change approved scope, contracts or accepted risk. Team membership and
