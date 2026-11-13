@@ -137,6 +137,32 @@ class GuidanceTests(unittest.TestCase):
 
 
 class ScopeTests(unittest.TestCase):
+    def test_exact_master_event_migration_is_directional(self):
+        cases = (
+            (pr_scope.WORKFLOW, workflow().replace("jobs:\n", "on:\n  pull_request:\n    branches: [develop]\njobs:\n")),
+            (pr_scope.WARM_WORKFLOW, pr_scope.warm_job_concurrency(warm_workflow())),
+        )
+        for path, before in cases:
+            after = before.replace("branches: [develop]", "branches: [master]")
+            with self.subTest(path=path):
+                self.assertEqual(classify_workflow(before, after, path), "portable")
+                self.assertEqual(classify_workflow(after, before, path), "windows")
+                for target in ("[main]", "[master, other]", "['master']"):
+                    self.assertEqual(classify_workflow(before, after.replace("[master]", target), path), "windows")
+                self.assertEqual(classify_workflow(before, after.replace("echo ", "echo changed "), path), "windows")
+                self.assertEqual(classify_workflow(before, after.replace("on:\n", "permissions:\n  contents: write\non:\n"), path), "windows")
+
+    def test_master_guidance_reference_does_not_allow_other_protected_edits(self):
+        old, new = pr_scope.MASTER_MIGRATIONS["AGENTS.md"]
+        before = guidance_text().replace("Keep product checks.", old)
+        after = before.replace(old, new)
+        documents = {"AGENTS.md": (before, after)}
+        self.assertEqual(pr_scope.classify_paths(["AGENTS.md"], documents=documents), "docs")
+        for previous, changed in ((after, before), (before, after.replace("no direct", "allow direct")),
+                                  (before.replace(old, old + "\n" + old), after.replace(new, new + "\n" + new))):
+            with self.subTest(previous=previous, changed=changed):
+                self.assertEqual(pr_scope.classify_paths(["AGENTS.md"], documents={"AGENTS.md": (previous, changed)}), "windows")
+
     def test_portable_allowlist_and_empty_are_conservative(self):
         for path in pr_scope.PORTABLE:
             with self.subTest(path=path):
@@ -433,7 +459,7 @@ class WorkflowWiringTests(unittest.TestCase):
     def test_cache_workflow_checks_push_scope_before_allocating_windows(self):
         path = Path(__file__).resolve().parents[2] / pr_scope.WARM_WORKFLOW
         header, jobs = path.read_text().split("\njobs:\n")
-        self.assertIn("on:\n  push:\n    branches: [develop]", header)
+        self.assertIn("on:\n  push:\n    branches: [master]", header)
         self.assertNotIn("\nconcurrency:", header)
         scope, warm = jobs.split("\n  warm:\n")
         self.assertIn("    runs-on: ubuntu-latest", scope)
@@ -447,6 +473,7 @@ class WorkflowWiringTests(unittest.TestCase):
 
     def test_actual_workflow_guards_every_windows_job_and_keeps_required_gates(self):
         path = Path(os.environ.get("CI_WORKFLOW_UNDER_TEST", Path(__file__).resolve().parents[2] / ".github/workflows/ci.yml"))
+        self.assertIn("on:\n  pull_request:\n    branches: [master]", path.read_text())
         blocks, current = {}, None
         for line in path.read_text().splitlines():
             match = re.fullmatch(r"  ([A-Za-z_][A-Za-z0-9_-]*):", line)

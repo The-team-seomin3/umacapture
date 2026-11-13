@@ -429,7 +429,7 @@ jobs:
           fi
 
       # --no-fatal-infos keeps errors and warnings fatal but tolerates pre-existing
-      # info-level lints (e.g. annotate_overrides) that also exist on develop.
+      # info-level lints (e.g. annotate_overrides) that also exist on master.
       - name: Analyze
         run: flutter analyze --no-fatal-infos
 
@@ -452,7 +452,7 @@ jobs:
       # WHAT THIS CANNOT SEE:
       #  * Whether this repository's commits actually went through the hook.
       #    `core.hooksPath` is opt-in per clone and `--no-verify` bypasses it, so a
-      #    new colour literal can still reach develop unchallenged. This step says
+      #    new colour literal can still reach master unchallenged. This step says
       #    the gate answers correctly when it is run, not that it was run.
       #  * The colour literals already in lib/. The gate scans added lines only, so
       #    the grandfathered ones are outside its subject, and this step inherits
