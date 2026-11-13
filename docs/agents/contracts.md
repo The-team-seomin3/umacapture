@@ -100,6 +100,11 @@ policy, required researcher, storage infrastructure or implementation authorizat
    data, otherwise inaccessible inputs or substantive repeatable comparison. A comment
    does not start/wake an idle agent, and a researcher is not a mandatory gate.
 
+For CI findings, identify the workflow run, exact revision and selected lane.
+Report skipped product jobs as not applicable, rather than passed. PR checks
+and actual post-merge checks are separate evidence; a successful portable run
+does not establish that the documentation-only route ran.
+
 ## Local storage and worktree handoff
 
 Keep reusable research under `issue-<N>/` in a private local research root. Use
