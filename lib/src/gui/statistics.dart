@@ -992,6 +992,9 @@ class CountStrategyChartData {
   final List<String> labels;
   late final List<int> counts;
   late final List<int> indices;
+  late final int unknownCount;
+
+  int get knownCount => counts.sum;
 
   final noTitle = AxisTitles(sideTitles: SideTitles(showTitles: false));
 
@@ -999,6 +1002,7 @@ class CountStrategyChartData {
 
   CountStrategyChartData(this.records, this.labels, this.colors) {
     counts = parse();
+    unknownCount = records.where((record) => record.metadata.stage == RecordStage.active).length - knownCount;
     indices = counts.indexed.sortedBy<num>((e) => -e.$2).map((e) => e.$1).toList();
   }
 
@@ -1006,7 +1010,10 @@ class CountStrategyChartData {
     List<int> d = [0, 0, 0, 0];
     for (final record in records.where((e) => e.metadata.stage == RecordStage.active)) {
       final strategy = record.metadata.strategy;
-      if (strategy >= 0 && strategy < d.length) {
+      // The producer uses the first race as representative. Missing, unsupported
+      // or stale/inconsistent metadata is not evidence for a definite category.
+      // This chart does not repair stored metadata; producer refresh is separate.
+      if (record.races.isNotEmpty && strategy >= 0 && strategy < d.length && record.races.first.strategy == strategy) {
         d[strategy]++;
       }
     }
@@ -1068,42 +1075,60 @@ class _CountStrategyStatisticWidgetState extends ConsumerState<CountStrategyStat
         final records = ref.watch(charaDetailRecordStorageProvider).where(category.matches).toList();
         final labels = ref.watch(labelMapProvider)[LabelKeys.raceStrategy]!;
         final chart = CountStrategyChartData(records, labels, theme.chart.categories);
-        // Guard against a non-empty record set that yields no active records:
-        // `chart.build` would otherwise divide by a zero total and crash on NaN.round().
-        if (chart.counts.sum == 0) {
-          return Text("-", style: theme.textTheme.headlineLarge);
+        // An all-unknown set still needs its coverage explanation. Never build
+        // the percentage chart with a zero denominator.
+        Widget chartWidget = Text("-", style: theme.textTheme.headlineLarge);
+        if (chart.knownCount > 0) {
+          chartWidget = Padding(
+            padding: const EdgeInsets.all(8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (BuildContext context, BoxConstraints constraints) {
+                      return chart.build(theme, Math.min(constraints.maxHeight, constraints.maxWidth));
+                    },
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    for (final i in chart.indices)
+                      Row(
+                        children: [
+                          Container(
+                            width: 12,
+                            height: 12,
+                            decoration: BoxDecoration(shape: BoxShape.circle, color: chart.colors[i]),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(labels[i]),
+                        ],
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          );
         }
-        return Padding(
-          padding: const EdgeInsets.all(8),
-          child: Row(
-            children: [
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (BuildContext context, BoxConstraints constraints) {
-                    return chart.build(theme, Math.min(constraints.maxHeight, constraints.maxWidth));
+        return Column(
+          children: [
+            Expanded(child: Center(child: chartWidget)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Text(
+                "$tr_statistics.count_strategy.coverage".tr(
+                  namedArgs: {
+                    'known': chart.knownCount.toNumberString(),
+                    'unknown': chart.unknownCount.toNumberString(),
                   },
                 ),
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall,
               ),
-              const SizedBox(width: 4),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  for (final i in chart.indices)
-                    Row(
-                      children: [
-                        Container(
-                          width: 12,
-                          height: 12,
-                          decoration: BoxDecoration(shape: BoxShape.circle, color: chart.colors[i]),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(labels[i]),
-                      ],
-                    ),
-                ],
-              ),
-            ],
-          ),
+            ),
+          ],
         );
       },
     );

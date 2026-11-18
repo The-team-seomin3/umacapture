@@ -2195,7 +2195,8 @@
                 }
             },
             "count_strategy": {
-                "title": "作戦採用率"
+                "title": "作戦採用率",
+                "coverage": "集計対象 {known}件・未確認の除外 {unknown}件"
             },
             "count_blue_factor": {
                 "title": "青因子保有数"
