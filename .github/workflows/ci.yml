@@ -1,9 +1,9 @@
 name: CI
 
 # Bounded guidance changes run Linux routing/content checks. A narrow portable
-# CLI diff also runs the pinned Python suite. Unknown,
-# mixed, App/native/Windows and Windows execution-contract changes retain the
-# existing Windows jobs. The stable required native/Flutter names are always-run
+# CLI diff also runs the pinned Python suite. The admitted #23 delta adds
+# scoped Linux Flutter checks. Other App/native/Windows and unknown changes
+# retain the existing Windows jobs. The stable required native/Flutter names are always-run
 # Ubuntu routing gates: they require actual applicable checks and explicitly
 # report Windows work as not applicable for verified guidance/portable diffs.
 # No workflow-level path skip or skip-ci marker is used.
@@ -274,9 +274,87 @@ jobs:
 
   # Keep the required name and fail on missing/failed/cancelled applicable work.
   # Guidance/portable Windows skips are explicit non-applicability, never test passes.
+  flutter-linux:
+    name: Scoped Flutter checks (Linux)
+    needs: scope
+    if: needs.scope.outputs.lane == 'flutter' || needs.scope.outputs.lane == 'flutter-bootstrap'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: .fvmrc
+          cache: true
+          cache-key: 'linux-flutter-:os:-:channel:-:version:-:arch:-:hash:'
+          pub-cache-key: 'linux-pub-:os:-:channel:-:version:-:arch:-:hash:'
+      - name: Resolve locked dependencies
+        run: |
+          flutter pub get --enforce-lockfile
+          git diff --exit-code -- pubspec.lock
+      - name: Test the required Flutter suites
+        shell: bash
+        env:
+          LANE: ${{ needs.scope.outputs.lane }}
+        run: |
+          tests=(test/korean_localization_test.dart)
+          if [[ "$LANE" == flutter ]]; then
+            tests+=(test/strategy_statistics_test.dart)
+          fi
+          report="$RUNNER_TEMP/flutter-results.jsonl"
+          flutter test --no-pub --concurrency=1 --machine "${tests[@]}" | tee "$report"
+          python3 - "$report" "${tests[@]}" <<'PY'
+          from collections import Counter
+          import json
+          from pathlib import Path
+          import sys
+
+          events = []
+          for line in Path(sys.argv[1]).read_text().splitlines():
+              if not line.strip():
+                  continue
+              event = json.loads(line)
+              # Flutter also emits JSON arrays for tool notifications.
+              if isinstance(event, list) and all(
+                  isinstance(item, dict) and "event" in item for item in event
+              ):
+                  continue
+              if not isinstance(event, dict) or "type" not in event:
+                  raise SystemExit("Unexpected Flutter test output")
+              events.append(event)
+          if not events or events[-1].get("type") != "done" or not events[-1].get("success"):
+              raise SystemExit("Flutter tests did not complete successfully")
+          suites = {e["suite"]["id"]: Path(e["suite"]["path"]).name
+                    for e in events if e["type"] == "suite"}
+          tests = {e["test"]["id"]: suites[e["test"]["suiteID"]]
+                   for e in events if e["type"] == "testStart"}
+          counts = Counter()
+          for event in events:
+              if event["type"] == "testDone" and not event["hidden"]:
+                  if event["skipped"] or event["result"] != "success":
+                      raise SystemExit("Required Flutter test was skipped or failed")
+                  counts[tests[event["testID"]]] += 1
+          minimum = {"korean_localization_test.dart": 4, "strategy_statistics_test.dart": 7}
+          expected = {Path(path).name: minimum[Path(path).name] for path in sys.argv[2:]}
+          if counts.keys() != expected.keys() or any(counts[name] < n for name, n in expected.items()):
+              raise SystemExit(f"Incomplete required Flutter suites: {dict(counts)}")
+          print(f"Verified Flutter test counts: {dict(counts)}")
+          PY
+      - name: Analyze and check formatting
+        env:
+          LANE: ${{ needs.scope.outputs.lane }}
+        run: |
+          files=(lib/src/gui/statistics.dart test/korean_localization_test.dart)
+          if [[ "$LANE" == flutter ]]; then
+            files+=(test/strategy_statistics_test.dart)
+          fi
+          flutter analyze --no-pub --no-fatal-infos "${files[@]}"
+          dart format --line-length=120 --output=none --set-exit-if-changed "${files[@]}"
+
   flutter-tests:
     name: Flutter unit/widget tests
-    needs: [scope, lightweight-checks, cli-tests, flutter-test-shards, flutter-static, flutter-web, browser-tests]
+    needs: [scope, lightweight-checks, cli-tests, flutter-linux, flutter-test-shards, flutter-static, flutter-web, browser-tests]
     if: always()
     runs-on: ubuntu-latest
     steps:

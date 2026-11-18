@@ -1,5 +1,6 @@
 """Routing/gate regressions: no Windows tools, network or third-party packages."""
 import copy
+from hashlib import sha256
 import json
 import os
 from pathlib import Path
@@ -8,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import pr_scope
 
@@ -278,6 +280,63 @@ class GitScopeTests(unittest.TestCase):
                                 env={**os.environ, "GITHUB_OUTPUT": str(output)}, capture_output=True, text=True)
         return result, output
 
+    def test_flutter_requires_the_full_reviewed_regular_file_delta(self):
+        paths = list(pr_scope.FLUTTER_ADMISSION)
+        old = {path: b"reviewed baseline\n" for path in paths[:-1]}
+        new = {path: b"reviewed candidate\n" for path in paths}
+        for path, data in old.items():
+            self.write(path, data.decode())
+        base = self.commit()
+        for path, data in new.items():
+            self.write(path, data.decode())
+        head = self.commit()
+        def pin(data):
+            return sha256(data).hexdigest()
+
+        pins = {p: (pin(old[p]) if p in old else None, pin(new[p])) for p in paths}
+
+        def classify(base_ref, head_ref, *, push=False):
+            return pr_scope.classify_refs(base_ref, head_ref, push=push)[0]
+
+        with (patch.object(pr_scope, "FLUTTER_ADMISSION", pins),
+              patch.object(pr_scope, "git", lambda *args: subprocess.check_output(["git", *args], cwd=self.root))):
+            self.assertEqual(classify(base, head), "flutter")
+            self.assertEqual(classify(base, head, push=True), "flutter")
+            self.write("tool/kr_factor_ocr/README.md", "portable companion\n")
+            self.assertEqual(classify(base, self.commit()), "flutter")
+            self.write("pubspec.lock", "dependency change\n")
+            self.assertEqual(classify(base, self.commit()), "windows")
+
+            self.git("checkout", "--detach", head)
+            self.write(paths[0], "unreviewed edit\n")
+            self.assertEqual(classify(base, self.commit()), "windows")
+
+            self.git("checkout", "--detach", head)
+            (self.root / paths[0]).chmod(0o755)
+            self.assertEqual(classify(base, self.commit()), "windows")
+
+            self.git("checkout", "--detach", head)
+            (self.root / paths[-1]).rename(self.root / "outside_test.dart")
+            self.assertEqual(classify(base, self.commit()), "windows")
+
+            self.git("checkout", "--detach", head)
+            (self.root / paths[-1]).unlink()
+            self.assertEqual(classify(base, self.commit()), "windows")
+
+            self.git("checkout", "--detach", base)
+            self.write("outside.txt", "base branch drift\n")
+            divergent = self.commit()
+            self.assertEqual(classify(divergent, head), "flutter")
+            self.assertEqual(classify(divergent, head, push=True), "windows")
+
+    def test_bootstrap_requires_its_complete_support_diff_and_keeps_windows_contract(self):
+        paths = pr_scope.FLUTTER_BOOTSTRAP_PATHS
+        workflows = {pr_scope.WORKFLOW: (workflow(), routed_workflow())}
+        self.assertEqual(pr_scope.classify_paths(paths, workflows), "flutter-bootstrap")
+        self.assertEqual(pr_scope.classify_paths(paths - {"tool/ci/test_pr_scope.py"}, workflows), "portable")
+        workflows[pr_scope.WORKFLOW] = (workflow(), routed_workflow().replace("echo checked", "echo changed"))
+        self.assertEqual(pr_scope.classify_paths(paths, workflows), "windows")
+
     def test_actual_git_cli_outputs_and_deleted_portable_file(self):
         (self.root / "tool/kr_factor_ocr/README.md").unlink()
         result, output = self.classify(self.commit())
@@ -410,6 +469,8 @@ class GateTests(unittest.TestCase):
         return {"scope": {"result": "success", "outputs": {"lane": lane}},
                 "lightweight-checks": {"result": "success"},
                 "cli-tests": {"result": "skipped" if lane == "docs" else "success"},
+                **({"flutter-linux": {"result": "success" if lane in pr_scope.FLUTTER_LANES else "skipped"}}
+                   if context == "flutter" else {}),
                 **{name: {"result": "success" if lane == "windows" else "skipped"}
                    for name in pr_scope.WINDOWS_JOBS[context]}}
 
@@ -418,11 +479,14 @@ class GateTests(unittest.TestCase):
             self.assertIn("not applicable", pr_scope.verify_gate(self.needs("portable", context), context))
             self.assertIn("Documentation checks passed", pr_scope.verify_gate(self.needs("docs", context), context))
             self.assertIn("Windows work", pr_scope.verify_gate(self.needs("windows", context), context))
+        for lane in pr_scope.FLUTTER_LANES:
+            self.assertIn("Linux Flutter", pr_scope.verify_gate(self.needs(lane, "flutter"), "flutter"))
+            self.assertIn("native work is not applicable", pr_scope.verify_gate(self.needs(lane, "native"), "native"))
 
     def test_failed_missing_cancelled_or_skipped_prerequisites_fail(self):
-        for lane in ("docs", "portable", "windows"):
+        for lane in {"docs", "portable", "windows"} | pr_scope.FLUTTER_LANES:
             for context in pr_scope.WINDOWS_JOBS:
-                for name in ("scope", "lightweight-checks", "cli-tests", *pr_scope.WINDOWS_JOBS[context]):
+                for name in self.needs(lane, context):
                     expected = self.needs(lane, context)[name]["result"]
                     for state in (None, "failure", "cancelled", "skipped", "success"):
                         if state == expected:
@@ -497,10 +561,17 @@ class WorkflowWiringTests(unittest.TestCase):
             need_lines = [line for line in lines if line.startswith("    needs:")]
             self.assertEqual(len(need_lines), 1)
             needs = {item.strip() for item in need_lines[0].split(":", 1)[1].strip().strip("[]").split(",")}
-            self.assertEqual(needs, {"scope", "lightweight-checks", "cli-tests", *pr_scope.WINDOWS_JOBS[context]})
+            expected = {"scope", "lightweight-checks", "cli-tests", *pr_scope.WINDOWS_JOBS[context]}
+            if context == "flutter":
+                expected.add("flutter-linux")
+            self.assertEqual(needs, expected)
             self.assertIn("    if: always()", lines)
             self.assertIn("    runs-on: ubuntu-latest", lines)
             self.assertIn(f"        run: python3 tool/ci/pr_scope.py gate --context {context}", lines)
+        linux = "\n".join(blocks["flutter-linux"])
+        self.assertIn("    runs-on: ubuntu-latest", linux)
+        self.assertIn("    needs: scope", linux)
+        self.assertIn("outputs.lane == 'flutter' || needs.scope.outputs.lane == 'flutter-bootstrap'", linux)
         scope = "\n".join(blocks["scope"])
         self.assertRegex(scope, r"uses: actions/checkout@[^\n]+\n        with:\n          fetch-depth: 0")
         lightweight = "\n".join(blocks["lightweight-checks"])
