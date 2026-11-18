@@ -310,7 +310,19 @@ jobs:
           from pathlib import Path
           import sys
 
-          events = [json.loads(line) for line in Path(sys.argv[1]).read_text().splitlines()]
+          events = []
+          for line in Path(sys.argv[1]).read_text().splitlines():
+              if not line.strip():
+                  continue
+              event = json.loads(line)
+              # Flutter also emits JSON arrays for tool notifications.
+              if isinstance(event, list) and all(
+                  isinstance(item, dict) and "event" in item for item in event
+              ):
+                  continue
+              if not isinstance(event, dict) or "type" not in event:
+                  raise SystemExit("Unexpected Flutter test output")
+              events.append(event)
           if not events or events[-1].get("type") != "done" or not events[-1].get("success"):
               raise SystemExit("Flutter tests did not complete successfully")
           suites = {e["suite"]["id"]: Path(e["suite"]["path"]).name
