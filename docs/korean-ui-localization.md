@@ -36,6 +36,34 @@ Recognition modules, game names/data supplied by modules, external news/Markdown
 and license originals keep their upstream content. UI translation does not provide
 Korean game recognition or a Windows release package.
 
+## Strategy statistics coverage
+
+The strategy chart ([#23](https://github.com/The-team-seomin3/umacapture/issues/23))
+counts active records in the selected record category only when the first race
+has a supported strategy index (0–3) matching `metadata.strategy`. A genuine
+strategy 0 remains a definite vote. Missing races, unsupported values and
+inconsistent metadata are excluded as unconfirmed; the chart shows both its
+counted denominator and the excluded count, even when every record is excluded.
+Percentages use the counted records only. Empty/all-unconfirmed sets display
+the placeholder instead of a percentage chart.
+
+This is a read-only consumer rule. It does not rewrite records, infer strategy
+from aptitudes or later races, or repair stale producer metadata; producer
+refresh belongs to [#24](https://github.com/The-team-seomin3/umacapture/issues/24).
+The current record schema supports only the active stage; unsupported inactive
+stage values are rejected at decoding, rather than included as votes. Structural
+agreement is not evidence of Japanese-model accuracy on Korean race text.
+
+Targeted Linux checks use the pinned SDK:
+
+```sh
+.fvm/flutter_sdk/bin/flutter test test/strategy_statistics_test.dart test/korean_localization_test.dart
+```
+
+These synthetic aggregation/widget checks do not establish actual Windows
+rendering or Korean game-recognition accuracy. Original module labels, saved
+record data and other statistics/filter behavior retain their existing contracts.
+
 ## Verification and packaging handoff
 
 With the SDK pinned by `.fvmrc` provisioned in the dedicated worktree:

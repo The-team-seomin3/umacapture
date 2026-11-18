@@ -2195,7 +2195,8 @@
                 }
             },
             "count_strategy": {
-                "title": "작전 채택률"
+                "title": "작전 채택률",
+                "coverage": "집계 기준 {known}건 · 미확인 제외 {unknown}건"
             },
             "count_blue_factor": {
                 "title": "청색 인자 보유 수"
