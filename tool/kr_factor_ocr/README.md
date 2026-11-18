@@ -17,7 +17,7 @@ Windows GUI, native-plugin or game-capture support.
 
 PR CI first classifies the complete diff. The narrow allowlist in
 `tool/ci/pr_scope.py` runs routing regressions and the pinned Python suite on Linux;
-unknown, mixed, App/native/Windows changes retain the Windows lane. Routing-only
+unknown, nonportable mixed, and other App/native/Windows changes retain the Windows lane. Routing-only
 edits to `ci.yml` or `warm-caches.yml` qualify only when the Windows execution
 contracts are preserved. The exact legacy `develop` to `master` event targets
 and corresponding contribution-rule branch reference can migrate on Linux.
@@ -43,9 +43,32 @@ Windows jobs. Missing, failed, cancelled or unexpectedly skipped applicable work
 fails the gate. There is no workflow-level path skip or automatic approval/merge.
 
 After a push to `master`, `Warm caches` compares the previous and new commit
-trees on Linux. An eligible guidance-only or portable push skips the Windows
+trees on Linux. An eligible guidance, portable, or admitted Flutter push skips the Windows
 cache job. Nonportable pushes still refresh the Windows dependency caches. A scope
 check error fails the workflow before allocating a Windows runner.
+
+### Scoped Linux Flutter validation
+
+[#42](https://github.com/The-team-seomin3/umacapture/issues/42) admits the exact
+reviewed [#23](https://github.com/The-team-seomin3/umacapture/issues/23) five-file
+delta by before/after SHA-256 and regular-file mode. It requires all five changes,
+including the addition of the reviewed strategy test. Changed bytes, modes, or
+missing companion files require reassessment. Other product changes and changes
+to the admission code or workflows alongside the App delta select Windows.
+Already eligible guidance or Python changes retain their applicable checks.
+
+The Ubuntu job uses the pinned SDK from `.fvmrc`, Linux-specific SDK/pub caches,
+locked dependency resolution, the strategy and Korean localization suites,
+scoped analysis and 120-column formatting. It verifies the required suites ran
+without skips. The Flutter gate requires the Linux job to succeed and the
+Windows jobs to be skipped. The native gate reports native non-applicability.
+The pinned Python suite remains applicable. The CI-support rollout itself
+requires the existing Korean localization suite to validate the Linux setup
+before the strategy test is published. Linux tests cover this source change;
+Windows native, browser and package behavior require their own checks.
+
+Warm caches uses the same admission against the complete master push.
+Linux caching uses the PR job and keeps separate keys from Windows caches.
 
 ## Application process adapter
 

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from hashlib import sha256
 import json
 import os
 from pathlib import Path
@@ -35,6 +36,35 @@ MASTER_MIGRATIONS = {
         "PR to `master`; no direct\n  `master` commits/pushes.",
     ),
 }
+# Exact before/after SHA-256 pairs for the reviewed #23 delta (#42).
+# Require the entire delta, including its synthetic test and companion docs.
+FLUTTER_ADMISSION = {
+    "assets/translations/ja.json": (
+        "9bd77bdf5ad26f1ca3df17f5d9030ed6d97d1efb0d5ef1fe960a8ae93cd8535a",
+        "89e8b3b12c7030b6ca45c5482548ffa552b854d540878de392186951c9aa3394",
+    ),
+    "assets/translations/ko.json": (
+        "9b8e56bac215a2254691845bf918ed739e0f9ced4321dfeeb908e03a94cf315b",
+        "9067f9806978fc25624e2f68d7b3bbaffddd1866adca7d774ccbd07a9bd1b71e",
+    ),
+    "docs/korean-ui-localization.md": (
+        "4b4b86e34bc157aed94caa260e66be338dfab5cbb2eb03df6e13d09f5815f50e",
+        "805561fc8d43acf3cfe520fcbfa466102c5506260f912d0aa012e18064edf16b",
+    ),
+    "lib/src/gui/statistics.dart": (
+        "b90dac977a1a30ec87176bc90a205ce721fc4bc66bad939773cb6eb357e069d2",
+        "350075ee489ed7fa7a20339963af4215ca0600d10131f273d8a4f9857f59c8a9",
+    ),
+    "test/strategy_statistics_test.dart": (
+        None,
+        "fc8897489b359268af85046207d5473dd6b16615cc129eeb1224c64c91ce73d3",
+    ),
+}
+FLUTTER_BOOTSTRAP_PATHS = {
+    WORKFLOW, "tool/ci/pr_scope.py", "tool/ci/test_pr_scope.py", "tool/kr_factor_ocr/README.md",
+}
+FLUTTER_LANES = {"flutter", "flutter-bootstrap"}
+
 WINDOWS_JOBS = {
     "native": ("native-tests-windows",),
     "flutter": ("flutter-test-shards", "flutter-static", "flutter-web", "browser-tests"),
@@ -190,9 +220,9 @@ def guidance_only(path, before, after):
     return bool(new_sections) and old_sections.keys() <= new_sections.keys() and old_protected == new_protected
 
 
-def classify_paths(paths, workflows=None, documents=None):
+def classify_paths(paths, workflows=None, documents=None, flutter_blobs=None):
     paths = set(paths)
-    unknown = paths - PORTABLE - ROUTED_WORKFLOWS - GUIDANCE.keys()
+    unknown = paths - PORTABLE - ROUTED_WORKFLOWS - GUIDANCE.keys() - FLUTTER_ADMISSION.keys()
     if not paths or unknown:
         return "windows"
     for path in paths & GUIDANCE.keys():
@@ -211,6 +241,16 @@ def classify_paths(paths, workflows=None, documents=None):
                 return "windows"
         except (AttributeError, KeyError, TypeError, ValueError):
             return "windows"
+    flutter_paths = paths & FLUTTER_ADMISSION.keys()
+    if flutter_paths:
+        # Do not combine admission with edits to its classifier, tests or workflows.
+        if (flutter_paths != FLUTTER_ADMISSION.keys()
+                or flutter_blobs != FLUTTER_ADMISSION
+                or paths & (ROUTED_WORKFLOWS | {"tool/ci/pr_scope.py", "tool/ci/test_pr_scope.py"})):
+            return "windows"
+        return "flutter"
+    if paths == FLUTTER_BOOTSTRAP_PATHS:
+        return "flutter-bootstrap"
     return "docs" if paths <= GUIDANCE.keys() else "portable"
 
 
@@ -241,6 +281,16 @@ def changed_texts(paths, base, head):
     return texts
 
 
+def regular_blob_digest(ref, path):
+    entry = git("ls-tree", ref, "--", path)
+    if not entry:
+        return None
+    if entry.split()[:2] != [b"100644", b"blob"]:
+        raise ValueError(f"{path}: expected a non-executable regular file")
+    # Unexpected read errors must propagate instead of becoming an absent file.
+    return sha256(git("show", ref + ":" + path)).hexdigest()
+
+
 def classify_refs(base, head, *, push=False):
     paths = changed_paths(base, head, push=push)
     comparison_base = base if push else git("merge-base", base, head).decode().strip()
@@ -249,7 +299,13 @@ def classify_refs(base, head, *, push=False):
     for path in list(documents):
         if any(git("ls-tree", ref, "--", path).split()[0] != b"100644" for ref in (comparison_base, head)):
             del documents[path]
-    return classify_paths(paths, workflows, documents), paths
+    flutter_blobs = {}
+    for path in set(paths) & FLUTTER_ADMISSION.keys():
+        try:
+            flutter_blobs[path] = tuple(regular_blob_digest(ref, path) for ref in (comparison_base, head))
+        except ValueError:
+            return "windows", paths
+    return classify_paths(paths, workflows, documents, flutter_blobs), paths
 
 
 def check_guidance(text, path, files):
@@ -319,11 +375,16 @@ def verify_gate(needs, context):
     if not isinstance(outputs, dict):
         raise ValueError("Missing or invalid scope outputs")
     lane = outputs.get("lane")
-    if lane not in ("docs", "portable", "windows"):
+    if lane not in {"docs", "portable", "windows"} | FLUTTER_LANES:
         raise ValueError("Missing or unknown scope lane")
     expected_cli = "skipped" if lane == "docs" else "success"
     if not isinstance(needs.get("cli-tests"), dict) or needs["cli-tests"].get("result") != expected_cli:
         raise ValueError(f"cli-tests must be {expected_cli} for {lane} routing")
+    if context == "flutter":
+        expected_flutter = "success" if lane in FLUTTER_LANES else "skipped"
+        linux_flutter = needs.get("flutter-linux")
+        if not isinstance(linux_flutter, dict) or linux_flutter.get("result") != expected_flutter:
+            raise ValueError(f"flutter-linux must be {expected_flutter} for {lane} routing")
     expected = "success" if lane == "windows" else "skipped"
     for name in WINDOWS_JOBS[context]:
         if not isinstance(needs.get(name), dict) or needs[name].get("result") != expected:
@@ -332,6 +393,11 @@ def verify_gate(needs, context):
         return "Documentation checks passed; CLI and Windows product work are not applicable and were skipped."
     if lane == "portable":
         return "Portable CLI tests passed; Windows work is not applicable and was skipped."
+    if lane in FLUTTER_LANES:
+        if context == "native":
+            return "Linux CLI and routing checks passed; Windows native work is not applicable and was skipped."
+        suite = "bootstrap localization" if lane == "flutter-bootstrap" else "strategy and localization"
+        return f"Linux Flutter {suite} checks and CLI tests passed; Windows Flutter work was skipped."
     return f"Required {context} Windows work and Linux CLI tests passed."
 
 
