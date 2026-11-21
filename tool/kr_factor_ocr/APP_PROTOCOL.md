@@ -133,6 +133,11 @@ name/star/namespace/SID chain and nonempty evidence. Different displayed/master
 spelling requires its specific `name_difference_reason`; this never creates a
 global alias policy.
 
+Applying an unchanged row in the desktop editor preserves its saved decision,
+including `verified`, across save and reopen. Editing the observation, identity
+or evidence clears confirmation. Explicitly checking the row again records
+`confirmed`.
+
 Atomic draft saving uses an owned lock and exact previous hash. A stale hash,
 invalid selected identity or changed immutable value fails before replacement.
 Partial drafts return exit 2; fully reviewed valid drafts return exit 0. The result
