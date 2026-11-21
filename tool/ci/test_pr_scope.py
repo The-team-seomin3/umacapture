@@ -44,6 +44,10 @@ def warm_workflow():
 def guidance_text(path="AGENTS.md", value="Guidance before"):
     if path == "AGENTS.md":
         return "# Agent guidance\n\n## Protected rules\nKeep product checks.\n\n## Issue context and decision continuity\n" + value + "\n"
+    if path == "docs/agents/teams.md":
+        return ("# Team responsibilities\n\n## Responsibility map\n" + value +
+                "\n\n## Shared work and handoffs\nRecord requests.\n\n"
+                "## Validation and staffing\nKeep product checks.\n")
     return ("# Contracts\n\n## Scope and contracts\nKeep product contracts.\n\n"
             "## Research handoffs\n" + value + "\n\n## Local storage and worktree handoff\nKeep private storage.\n")
 

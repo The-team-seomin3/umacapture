@@ -27,6 +27,7 @@ PORTABLE = {
 GUIDANCE = {
     "AGENTS.md": {"Issue context and decision continuity"},
     "docs/agents/contracts.md": {"Research handoffs", "Local storage and worktree handoff"},
+    "docs/agents/teams.md": {"Responsibility map", "Shared work and handoffs"},
 }
 MASTER_MIGRATIONS = {
     WORKFLOW: ("on:\n  pull_request:\n    branches: [develop]\n", "on:\n  pull_request:\n    branches: [master]\n"),
