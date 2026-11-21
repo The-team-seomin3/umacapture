@@ -73,6 +73,7 @@ class VerifiedExport(unittest.TestCase):
         self.ctx = exporter.load_context(self.args)
         self.review = exporter.review_template(self.ctx)
         self.review["reviewer"] = "Synthetic independent pixel reviewer"
+        self.review["owner_handoff"]["agent_review_complete"] = True
         self.review["coverage"] = {**{key: True for key in exporter.COVERAGE},
                                    "evidence": "Synthetic full-image/group/completeness fixture inspected"}
         for row in self.review["rows"]:
@@ -83,6 +84,39 @@ class VerifiedExport(unittest.TestCase):
 
     def save_review(self, review=None):
         self.args.review.write_bytes(exporter.encoded(self.review if review is None else review))
+
+    @staticmethod
+    def owner_request(review):
+        row = review["rows"][0]
+        return {**{key: row[key] for key in ("group", "index", "name_crop_sha256", "star_crop_sha256")},
+                "question": "Which mark follows the name?", "reason": "The final glyph is unclear.",
+                "answer": None}
+
+    def test_standalone_owner_handoff_gates_and_evidence(self):
+        request = self.owner_request(self.review)
+        complete = {"version": 1, "agent_review_complete": True, "requests": [request]}
+        for handoff in (None, {}, {**complete, "version": True}, {**complete, "agent_review_complete": 1},
+                        exporter.new_owner_handoff(), complete, {**complete, "requests": [request, request]},
+                        *({**complete, "requests": [{**request, key: value}]} for key, value in (
+                            ("answer", " "), ("question", ""), ("reason", None), ("index", True),
+                            ("group", "missing"), ("name_crop_sha256", ""), ("star_crop_sha256", "")))):
+            with self.subTest(handoff=handoff):
+                self.review["owner_handoff"] = handoff
+                self.save_review()
+                with self.assertRaises(ValueError):
+                    exporter.export(self.args)
+                self.assertFalse(self.args.output.exists())
+                self.assertFalse(self.args.evidence_output.exists())
+        del self.review["owner_handoff"]
+        self.save_review()
+        with self.assertRaisesRegex(ValueError, "Agent review completion"):
+            exporter.export(self.args)
+        request["answer"] = "One circle"
+        self.review["owner_handoff"] = complete
+        self.save_review()
+        self.assertTrue(exporter.export(self.args)["completed"])
+        evidence = exporter.read_json(self.args.evidence_output / "review.json")
+        self.assertEqual(evidence, self.review)
 
     def prior_output(self):
         self.args.output.parent.mkdir(exist_ok=True)

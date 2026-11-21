@@ -54,10 +54,17 @@ Preserved compatible captures can be selected directly in the KR workflow.
 1. Select **한국어 OCR 실행**. The app runs the adapter with an explicit interpreter
    and argument list, without a shell. Exit 2 is **검토 필요**, not failure or
    completed export. **기존 작업 재개** reloads and revalidates a saved session.
-2. Open the complete `factor.png` and check capture beginning/end, group boundaries
+2. **오너 확인 요청** lists unanswered questions explicitly saved by the reviewing
+   agent. Open a question to see its reason and its bound name and star crops.
+   **답변 저장** saves the answer against the loaded draft hash. The agent can
+   read it on reopen; the reviewed factor decision stays separate. An empty list
+   shows whether the agent marked the pass complete. A legacy draft without a
+   handoff remains incomplete. See the [handoff format](../tool/kr_factor_ocr/APP_PROTOCOL.md).
+3. For a full audit or individual row review, enable **전체 검토 기록 보기**.
+   Open the complete `factor.png` and check capture beginning/end, group boundaries
    and missing/duplicate rows. Record the reviewer, three coverage confirmations
    and the coverage evidence; none is pre-accepted.
-3. Open every factor row. Name/star crops use nearest-neighbor enlargement and
+4. Open every factor row. Name/star crops use nearest-neighbor enlargement and
    support pan/zoom. Inspect actual pixels, raw OCR and the JP baseline. Select a
    candidate or search the pinned master (empty query allows paged browsing).
    Search accepts an observed star 1–3; ambiguous/missing module mappings cannot
@@ -65,12 +72,12 @@ Preserved compatible captures can be selected directly in the KR workflow.
    star-specific factor IDs. Enter the observed name, any displayed/master name
    difference reason, and row evidence. Explicitly confirm that individual row.
    Selecting a candidate or changing its observation does not confirm it.
-4. **검토 초안 저장** saves an incomplete draft using its last review hash;
+5. **검토 초안 저장** saves an incomplete draft using its last review hash;
    a concurrent change is rejected without replacing that draft. **저장 후 전체
    검증** checks every saved row and coverage binding against the producer.
    Immutable source/crop/tool/master/module bindings are preserved. Editing paths
    clears the in-memory session; editing a review disables export until rechecked.
-5. **검토된 record-kr.json 내보내기** is enabled only after a saved validated review.
+6. **검토된 record-kr.json 내보내기** is enabled only after agent completion, answers to all requests, and validation of all rows and coverage.
    Each attempt uses a new result subdirectory. The adapter validates and publishes
    the full-shape derived file and paired JP/KR comparison/evidence. The app checks
    the final path and SHA256 against the actual bytes before showing completion.

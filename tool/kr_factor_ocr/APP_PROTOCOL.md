@@ -120,11 +120,29 @@ Add `review` (the complete review object returned by run/load) and
 Preserve every immutable binding, row/group/order, crop hash, original OCR and
 baseline value. Only these fields are editable:
 
-- Top-level `reviewer`.
+- Top-level `reviewer` and the owner handoff described below.
 - `coverage.complete_capture`, `coverage.group_boundaries`,
   `coverage.no_missing_or_duplicate_rows`, and `coverage.evidence`.
 - Per-row `decision`, `observed_name`, `master_name`, `star`, `app_sid`, `factor_id`,
   `factor_group_id`, `name_difference_reason`, and `evidence`.
+
+Fresh drafts include `owner_handoff` with `version: 1`, boolean
+`agent_review_complete: false` and `requests: []`. Each explicit request
+identifies one unique source row by its exact `group`, integer `index`,
+`name_crop_sha256` and `star_crop_sha256`. The request carries a nonblank
+`question` and `reason`, and an `answer` initially set to JSON null.
+Display only unanswered requests in the owner queue and use the matching
+diagnostic row's name and star crops. Keep all rows and validation details
+available for agent review. Save the owner's nonblank answer with the full
+draft. It clears the request from the queue while preserving the request,
+answer and independent row decision. The adapter preserves previously saved
+request bindings, question, reason and any existing answer under the draft lock.
+
+An empty queue can still have outstanding agent work. Export requires explicit
+agent completion, every request answered and all existing row, reviewer and
+coverage checks. A missing handoff with valid current bindings leaves the draft
+incomplete. Malformed handoffs fail validation. Older tool hashes continue to
+require fresh review; loading preserves existing evidence.
 
 A `decision` is `unreviewed`, `verified` (independent pixel observation) or
 `confirmed` (explicit confirmation). Do not prefill a verified/confirmed decision

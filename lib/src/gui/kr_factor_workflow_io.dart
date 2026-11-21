@@ -60,6 +60,7 @@ class _KrFactorWorkflowPanelState extends ConsumerState<KrFactorWorkflowPanel> {
   Map<String, dynamic>? _export;
   bool _busy = false;
   bool _dirty = false;
+  bool _showAudit = false;
   String _status = '준비 · 한국어 인자 OCR을 아직 실행하지 않았습니다.';
   String? _error;
 
@@ -120,6 +121,7 @@ class _KrFactorWorkflowPanelState extends ConsumerState<KrFactorWorkflowPanel> {
     setState(() {
       _session = null;
       _sessionRequest = null;
+      _showAudit = false;
       _export = null;
       _dirty = false;
       _status = '경로가 변경됐습니다. OCR 실행 또는 기존 작업 재개가 필요합니다.';
@@ -141,7 +143,7 @@ class _KrFactorWorkflowPanelState extends ConsumerState<KrFactorWorkflowPanel> {
     _reviewer.text = session.review['reviewer'] as String? ?? '';
     _coverageEvidence.text = (session.review['coverage'] as Map)['evidence'] as String? ?? '';
     _dirty = false;
-    _status = session.ready ? '검토 검증 통과 · 별도 출력으로 내보낼 수 있습니다.' : '검토 필요 · 행별 픽셀과 전체 캡처를 확인하세요.';
+    _status = session.ready ? '검토 검증 통과 · 별도 출력으로 내보낼 수 있습니다.' : '검토 진행 중 · 내보내기 요건이 아직 충족되지 않았습니다.';
   }
 
   Future<void> _perform(Future<void> Function() action) async {
@@ -166,10 +168,12 @@ class _KrFactorWorkflowPanelState extends ConsumerState<KrFactorWorkflowPanel> {
 
   Future<void> _start(String command) => _perform(() async {
     final request = _request;
+    _session?.data['ready_to_export'] = false;
     final response = await _invoke(command, request);
     if (!mounted) return;
     setState(() {
       _sessionRequest = request;
+      _showAudit = false;
       _export = null;
       _acceptSession(response);
     });
@@ -240,6 +244,61 @@ class _KrFactorWorkflowPanelState extends ConsumerState<KrFactorWorkflowPanel> {
       _session!.data['ready_to_export'] = false;
       _dirty = true;
       _export = null;
+    });
+  }
+
+  Future<void> _answerRequest(int index) async {
+    final session = _session!;
+    final request = session.ownerRequests[index]!;
+    final row = session.rows[index];
+    var input = '';
+    final answer = await showDialog<String>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, refresh) => AlertDialog(
+          title: Text('${row['group']} [${row['index']}] · 오너 답변'),
+          content: SizedBox(
+            width: 650,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(request['question'] as String),
+                  Text('요청 사유: ${request['reason']}'),
+                  KrPixelImage(path: row['name_crop'] as String),
+                  KrPixelImage(path: row['star_crop'] as String),
+                  TextField(
+                    autofocus: true,
+                    decoration: const InputDecoration(labelText: '오너 답변'),
+                    onChanged: (value) => refresh(() => input = value),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('취소')),
+            FilledButton(
+              onPressed: input.trim().isEmpty ? null : () => Navigator.pop(context, input),
+              child: const Text('답변 저장'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (answer == null || !mounted || session != _session) return;
+    await _perform(() async {
+      final response = await _invoke('save-review', {
+        ..._sessionRequest!,
+        'review': session.reviewWithAnswer(index, answer),
+        'expected_review_sha256': session.reviewSha256,
+      });
+      if (mounted) {
+        setState(() {
+          _export = null;
+          _acceptSession(response);
+        });
+      }
     });
   }
 
@@ -371,66 +430,88 @@ class _KrFactorWorkflowPanelState extends ConsumerState<KrFactorWorkflowPanel> {
           ),
         ]),
         if (session != null) ...[
-          _section('2 · 전체 캡처와 행별 확인', [
-            SelectableText(
-              '작업: ${session.data['working_dir']}\n검토: ${session.data['review_path']}\n'
-              '검토 해시: ${session.reviewSha256}\n확인: ${session.confirmedCount}/${session.rows.length}'
-              '${_dirty ? ' · 미저장 변경 있음' : ''}',
-            ),
-            TextButton(
-              onPressed: _busy
-                  ? null
-                  : () => showDialog<void>(
-                      context: context,
-                      builder: (_) =>
-                          Dialog(child: KrPixelImage(path: session.data['source_image'] as String, fullImage: true)),
-                    ),
-              child: const Text('전체 factor.png 열기 · 시작/끝/그룹 경계 확인'),
-            ),
-            TextField(
-              controller: _reviewer,
-              enabled: !_busy,
-              decoration: const InputDecoration(labelText: '독립 검토/명시적 확인자'),
-              onChanged: (value) => setState(() {
-                session.review['reviewer'] = value;
-                session.data['ready_to_export'] = false;
-                _dirty = true;
-                _export = null;
-              }),
-            ),
-            for (final entry in const {
-              'complete_capture': '수집 시작부터 끝까지 완전한 캡처임을 확인',
-              'group_boundaries': 'self → parent1 → parent2 순서와 그룹 경계 확인',
-              'no_missing_or_duplicate_rows': '누락 또는 중복된 인자 행이 없음을 확인',
-            }.entries)
-              CheckboxListTile(
-                title: Text(entry.value),
-                value: (session.review['coverage'] as Map)[entry.key] == true,
-                onChanged: _busy ? null : (v) => _editCoverage(entry.key, v == true),
-              ),
-            TextField(
-              controller: _coverageEvidence,
-              enabled: !_busy,
-              maxLines: 2,
-              decoration: const InputDecoration(labelText: '전체 캡처 범위/그룹/행 수를 확인한 근거'),
-              onChanged: (v) => _editCoverage('evidence', v),
-            ),
-            for (var index = 0; index < session.rows.length; index++)
+          _section('2 · 오너 확인 요청', [
+            if (session.unanswered.isEmpty)
+              Text(session.agentReviewComplete ? '미해결 요청 없음 · 에이전트 검토 완료' : '미해결 요청 없음 · 에이전트 검토 미완료'),
+            for (final entry in session.unanswered)
               ListTile(
-                title: Text(
-                  '${session.rows[index]['group']} [${session.rows[index]['index']}] '
-                  '${session.rows[index]['raw_text']}',
-                ),
+                title: Text(entry.value['question'] as String),
                 subtitle: Text(
-                  'JP SID ${session.rows[index]['baseline_sid']} · 별 ${session.rows[index]['star']} · '
-                  'KR ${session.decisions[index]['master_name'] ?? '미선택'} · ${session.decisions[index]['decision']}',
+                  "${session.rows[entry.key]['group']} [${session.rows[entry.key]['index']}] · ${entry.value['reason']}",
                 ),
-                trailing: const Icon(Icons.zoom_in),
-                onTap: _busy ? null : () => _reviewRow(index),
+                onTap: _busy || _dirty ? null : () => _answerRequest(entry.key),
               ),
+            if (_dirty) const Text('오너 답변을 저장하려면 먼저 검토 초안을 저장하세요.'),
+            SwitchListTile(
+              title: const Text('전체 검토 기록 보기'),
+              value: _showAudit,
+              onChanged: (value) => setState(() => _showAudit = value),
+            ),
+            if (_showAudit) ...[
+              SelectableText(
+                '작업: ${session.data['working_dir']}\n검토: ${session.data['review_path']}\n'
+                '검토 해시: ${session.reviewSha256}\n확인: ${session.confirmedCount}/${session.rows.length}'
+                '${_dirty ? ' · 미저장 변경 있음' : ''}',
+              ),
+              TextButton(
+                onPressed: _busy
+                    ? null
+                    : () => showDialog<void>(
+                        context: context,
+                        builder: (_) =>
+                            Dialog(child: KrPixelImage(path: session.data['source_image'] as String, fullImage: true)),
+                      ),
+                child: const Text('전체 factor.png 열기 · 시작/끝/그룹 경계 확인'),
+              ),
+              TextField(
+                controller: _reviewer,
+                enabled: !_busy,
+                decoration: const InputDecoration(labelText: '독립 검토/명시적 확인자'),
+                onChanged: (value) => setState(() {
+                  session.review['reviewer'] = value;
+                  session.data['ready_to_export'] = false;
+                  _dirty = true;
+                  _export = null;
+                }),
+              ),
+              for (final entry in const {
+                'complete_capture': '수집 시작부터 끝까지 완전한 캡처임을 확인',
+                'group_boundaries': 'self → parent1 → parent2 순서와 그룹 경계 확인',
+                'no_missing_or_duplicate_rows': '누락 또는 중복된 인자 행이 없음을 확인',
+              }.entries)
+                CheckboxListTile(
+                  title: Text(entry.value),
+                  value: (session.review['coverage'] as Map)[entry.key] == true,
+                  onChanged: _busy ? null : (v) => _editCoverage(entry.key, v == true),
+                ),
+              TextField(
+                controller: _coverageEvidence,
+                enabled: !_busy,
+                maxLines: 2,
+                decoration: const InputDecoration(labelText: '전체 캡처 범위/그룹/행 수를 확인한 근거'),
+                onChanged: (v) => _editCoverage('evidence', v),
+              ),
+              for (var index = 0; index < session.rows.length; index++)
+                ListTile(
+                  title: Text(
+                    '${session.rows[index]['group']} [${session.rows[index]['index']}] '
+                    '${session.rows[index]['raw_text']}',
+                  ),
+                  subtitle: Text(
+                    'JP SID ${session.rows[index]['baseline_sid']} · 별 ${session.rows[index]['star']} · '
+                    'KR ${session.decisions[index]['master_name'] ?? '미선택'} · ${session.decisions[index]['decision']}',
+                  ),
+                  trailing: const Icon(Icons.zoom_in),
+                  onTap: _busy ? null : () => _reviewRow(index),
+                ),
+              for (final entry in session.ownerRequests.entries)
+                SelectableText(
+                  "${session.rows[entry.key]['group']} [${session.rows[entry.key]['index']}] · ${entry.value['question']}\n사유: ${entry.value['reason']}\n오너 답변: ${entry.value['answer'] ?? '미답변'}",
+                ),
+              for (final issue in session.issues) Text(issue),
+            ],
           ]),
           _section('3 · 검토 저장·검증·안전 출력', [
-            for (final issue in session.issues) Text(issue),
             for (final limit in (session.data['limitations'] as List? ?? [])) Text('$limit'),
             Wrap(
               spacing: 8,
