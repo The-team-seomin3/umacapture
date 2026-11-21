@@ -46,6 +46,9 @@ set(
 )
 
 add_executable(${BINARY_NAME} WIN32 ${SOURCE_FILES})
+if(UMACAPTURE_IS_KR)
+    target_compile_definitions(${BINARY_NAME} PRIVATE UMACAPTURE_KR_VARIANT)
+endif()
 
 # Flutter adds a Profile configuration that third-party packages know nothing about. The OpenCV
 # imported targets only carry DEBUG and RELEASE, and CMake's fallback picks the first one (DEBUG),

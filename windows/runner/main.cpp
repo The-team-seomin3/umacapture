@@ -6,15 +6,31 @@
 #include "flutter_window.h"
 #include "utils.h"
 
+namespace {
+#ifdef UMACAPTURE_KR_VARIANT
+constexpr wchar_t kWindowTitle[] = L"umacapture (Korean Factor OCR)";
+#else
+constexpr wchar_t kWindowTitle[] = L"umacapture";
+#endif
+}
+
 int APIENTRY
 wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev, _In_ wchar_t *command_line, _In_ int show_command) {
     HANDLE mutex_ = ::CreateMutex(nullptr, TRUE, L"umacapture_mutex");
+    if (mutex_ == nullptr) {
+        ::MessageBox(nullptr, L"Cannot acquire the application startup lock.", kWindowTitle, MB_OK | MB_ICONERROR);
+        return EXIT_FAILURE;
+    }
     if (GetLastError() == ERROR_ALREADY_EXISTS) {
         CloseHandle(mutex_);
-        HWND hwnd = ::FindWindow(L"FLUTTER_RUNNER_WIN32_WINDOW", L"umacapture");
+        HWND hwnd = ::FindWindow(L"FLUTTER_RUNNER_WIN32_WINDOW", kWindowTitle);
         if (hwnd != nullptr) {
             ::ShowWindow(hwnd, SW_NORMAL);
             ::SetForegroundWindow(hwnd);
+        } else {
+            ::MessageBox(nullptr,
+                L"Another umacapture application is running. Close it before starting this OCR variant.",
+                kWindowTitle, MB_OK | MB_ICONINFORMATION);
         }
         return EXIT_FAILURE;
     }
@@ -38,7 +54,7 @@ wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev, _In_ wchar_t *command
     FlutterWindow window(project);
     Win32Window::Point origin(10, 10);
     Win32Window::Size size(1280, 720);
-    if (!window.CreateAndShow(L"umacapture", origin, size)) {
+    if (!window.CreateAndShow(kWindowTitle, origin, size)) {
         return EXIT_FAILURE;
     }
     window.SetQuitOnClose(true);

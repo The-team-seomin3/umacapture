@@ -10,10 +10,10 @@ non-factor values remain unverified for Korean-client accuracy.
 
 ## Portable CLI publication and CI
 
-The Python adapter, configuration/preflight helper, tests and this protocol/manual
-slice run on Linux using saved captures. The Flutter application, Windows runner
-and package build sources are delivered separately. Linux CLI checks do not claim
-Windows GUI, native-plugin or game-capture support.
+The Python adapter, configuration/preflight helper and tests run on Linux using
+saved captures. See the [KR review app guide](../../docs/kr-factor-app.md) and
+[Windows variant builds](../../docs/windows-ocr-variants.md) for the desktop
+workflow. Windows runtime acceptance requires checks of the packaged app.
 
 PR CI first classifies the complete diff. The narrow allowlist in
 `tool/ci/pr_scope.py` runs routing regressions and the pinned Python suite on Linux;
