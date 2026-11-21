@@ -131,10 +131,19 @@ Future<String> readKoreanDataRoot({
     final actual = Directory(root).existsSync()
         ? Directory(root).resolveSymbolicLinksSync()
         : p.join(supportDirectory.resolveSymbolicLinksSync(), koreanDefaultDataDirName);
-    final protected = <String>[p.join(documentsDirectory.path, 'umacapture'), p.join(supportDirectory.path, 'modules')];
+    // On Windows path_provider uses RoamingAppData/CompanyName/ProductName
+    // from Runner.rc. Both variants share the company, but JP's ProductName
+    // is umacapture. The provider gives this process the KR product directory.
+    final jpSupport = Directory(p.join(supportDirectory.parent.path, 'umacapture'));
+    final protected = <String>[
+      p.join(documentsDirectory.path, 'umacapture'),
+      jpSupport.path,
+      p.join(jpSupport.path, 'modules'),
+      p.join(supportDirectory.path, 'modules'),
+    ];
     final jpEnv = environment[dataRootOverrideEnvVar];
     if (jpEnv != null && jpEnv.trim().isNotEmpty) protected.add(jpEnv);
-    final jpFile = File(p.join(supportDirectory.path, bootstrapFileName));
+    final jpFile = File(p.join(jpSupport.path, bootstrapFileName));
     if (jpFile.existsSync()) {
       final jp = jsonDecode(jpFile.readAsStringSync());
       if (jp is Map && jp['data_root'] is String) protected.add(jp['data_root'] as String);

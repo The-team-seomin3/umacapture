@@ -16,6 +16,8 @@ storage and capture modules live in `kr-factor-app/` under application support.
 `UMACAPTURE_KR_DATA_ROOT` selects an existing absolute KR root; the shared JP
 `UMACAPTURE_DATA_ROOT` is not inherited. Startup rejects known JP-root overlap and
 unavailable/malformed KR settings before opening Hive or startup maintenance.
+It checks the JP product's application-support directory and relocation setting
+for overlapping paths.
 The recovery screen can save an existing root or restore the KR default, then
 retry; it never migrates files. An environment override takes precedence and must
 be corrected in the launching environment. The generic JP data-migration UI is
@@ -23,6 +25,7 @@ not offered in the KR app.
 
 The storage manager leaves the KR bootstrap, default root and active KR
 workflow settings, review runs and default results out of unclassified cleanup.
+An unclassified directory containing the active KR root is also excluded.
 Keep saved review data and exports with their corresponding capture evidence.
 
 The home screen shows the actual executable, data/settings/capture/module paths.

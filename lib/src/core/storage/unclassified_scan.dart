@@ -41,7 +41,7 @@ List<PathEntity> krWorkflowPaths(PathInfo info, {required bool useKrDataRoot}) {
 /// list written out here, so a directory or a group added later is subtracted
 /// without anyone remembering to come back. A hand-written list is exactly the
 /// thing that would leave a new group's directory showing up as "unclassified".
-Set<String> _pathsTheAppNames(PathInfo info) {
+Set<String> _pathsTheAppNames(PathInfo info, {required bool useKrDataRoot}) {
   return {
     // The base directories. They are fields, not getters, so they are not in
     // `pathInfoDirectories`; a root that nests inside another root (as on web,
@@ -52,7 +52,7 @@ Set<String> _pathsTheAppNames(PathInfo info) {
     info.executableDir.path,
     info.downloadDir.path,
     ?info.dataRoot?.path,
-    for (final path in krWorkflowPaths(info, useKrDataRoot: isKoreanFactorApp)) path.path,
+    for (final path in krWorkflowPaths(info, useKrDataRoot: useKrDataRoot)) path.path,
     for (final dir in pathInfoDirectories(info).values) dir.path,
     for (final group in storageGroups)
       if (!group.isResidualBucket && group.nameFilter == null)
@@ -69,8 +69,9 @@ Set<String> _pathsTheAppNames(PathInfo info) {
 ///
 /// Returns the listing metadata as enumerated, so a caller showing sizes does not
 /// pay a second filesystem round trip per entry.
-Future<List<FsListing>> scanUnclassifiedEntries(PathInfo info) async {
-  final known = _pathsTheAppNames(info);
+Future<List<FsListing>> scanUnclassifiedEntries(PathInfo info, {bool useKrDataRoot = isKoreanFactorApp}) async {
+  final known = _pathsTheAppNames(info, useKrDataRoot: useKrDataRoot);
+  final activeKrRoot = useKrDataRoot ? info.dataRoot : null;
   final filtered = storageGroups.where((group) => group.nameFilter != null).toList();
   final residue = <FsListing>[];
   for (final root in unclassifiedScanRoots(info)) {
@@ -89,6 +90,14 @@ Future<List<FsListing>> scanUnclassifiedEntries(PathInfo info) async {
         continue;
       }
       if (known.contains(entity.path)) {
+        continue;
+      }
+      // A recursive delete of an ancestor would also delete the active KR
+      // data root, even when the root itself was already subtracted above.
+      if (activeKrRoot != null &&
+          entity is DirectoryPath &&
+          (PathEntity.context.equals(entity.path, activeKrRoot.path) ||
+              PathEntity.context.isWithin(entity.path, activeKrRoot.path))) {
         continue;
       }
       // A filtered group (the font cache) owns matching children of a directory

@@ -95,8 +95,11 @@ const nestedSegmentExemptions = <({String file, String base, String segment})>{
   (file: 'kr_factor_workflow_io.dart', base: 'destination', segment: 'evidence'),
 };
 
-// KR startup only inspects this JP path to reject an overlapping root.
-const readOnlyPathExemptions = {(file: 'bootstrap.dart', base: 'documentsDirectory', segment: 'umacapture')};
+// KR startup only inspects these JP paths to reject an overlapping root.
+const readOnlyPathExemptions = {
+  (file: 'bootstrap.dart', base: 'documentsDirectory', segment: 'umacapture'),
+  (file: 'bootstrap.dart', base: 'supportDirectory', segment: 'umacapture'),
+};
 
 /// Every directory name the app joins onto a path as a literal, with repeats —
 /// the second extractor this file needs. Grouped by file; nothing here depends on
@@ -768,6 +771,19 @@ void main() {
           (info.dataRoot! / krWorkflowResultsDirName).path,
         ],
       });
+    });
+
+    test('only the containing branch of a nested active KR root is excluded from cleanup', () async {
+      final parent = Platform.isWindows ? 'PROFILES' : 'profiles';
+      final info = layoutUnder(root.path, dataRoot: DirectoryPath('${root.path}/support/$parent/current'));
+      write('support/profiles/current/$krWorkflowRunsDirName/review.json');
+      write('support/profiles-old/unrelated.json');
+      final paths = (await scanUnclassifiedEntries(
+        info,
+        useKrDataRoot: true,
+      )).map((entry) => entry.entity.path).toSet();
+      expect(paths, {(info.supportDir / 'profiles-old').path});
+      expect(File('${root.path}/support/profiles/current/$krWorkflowRunsDirName/review.json').readAsStringSync(), 'x');
     });
 
     test('a data root that lands back on an existing root is walked once', () async {
