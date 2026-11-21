@@ -32,9 +32,10 @@ CMake's `InstallRequiredSystemLibraries`, rather than copied from `System32`.
 Debug retains its existing system debug-runtime path and was not validated here.
 CMake resets the install prefix to the local `runner/<configuration>` bundle
 directory on every configure. Retry the same non-elevated build command after
-fixing the configure error. For JP/KR builds, use the
-[variant packaging script](windows-ocr-variants.md#local-builds) to copy each
-completed bundle before the next build reuses that directory.
+fixing the configure error. Use the
+[KR packaging script](windows-ocr-variants.md#local-builds) for the Korean
+bundle. When building JP explicitly, copy its completed bundle before
+reusing the build directory for KR.
 
 Check the exit code and actual MSBuild compile/link/install output. Preserve
 verbose logs with the local artifact. A successful configure, old executable or
