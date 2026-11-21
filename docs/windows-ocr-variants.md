@@ -20,24 +20,25 @@ Run `flutter pub get` with the pinned SDK before packaging.
 ./tool/build_ocr_apps.ps1 -OutputDirectory C:/private/new-ocr-app-build
 ```
 
-The destination must not exist. Failed/partial builds are retained. The script
-builds JP and KR sequentially from the current tree and creates `jp/` and `kr/`
-packages with build logs, source file hashes and package manifests. It neither
-publishes a release nor includes private capture/master files. Configure an
+The destination must not exist. Failed or partial builds are retained. The
+script builds KR and creates a `kr/` package with a build log, source file
+hashes and a package manifest. The bundle is local and excludes private
+capture/master files. Configure an
 existing local Python runtime with the pinned OCR dependencies, local Korean
 ONNX model and pinned normalized master/module in the KR workflow. Packaging
 includes the Python adapter source; it does not install Python or download
 models. See the [producer runtime and review contract](../tool/kr_factor_ocr/README.md).
 
-For a single compile:
+For a compile without packaging, select the variant explicitly:
 
 ```powershell
 .fvm/flutter_sdk/bin/flutter.bat build windows --release --no-pub --dart-define=UMACAPTURE_VARIANT=jp
 .fvm/flutter_sdk/bin/flutter.bat build windows --release --no-pub --dart-define=UMACAPTURE_VARIANT=kr
 ```
 
-The release tree is reused by Flutter. Copy the complete output for one variant
-before building the other; use the packaging script to exclude stale executables.
+Flutter reuses the release tree. Copy the complete output before switching
+variants. The KR packaging script excludes stale JP executables and symbols
+from a reused release tree.
 JP keeps `umacapture.exe` and window `umacapture`. KR uses `umacapture_kr.exe` and
 window `umacapture (Korean Factor OCR)`. Native identity follows the same Dart
 define as the UI, not a separate environment switch.
