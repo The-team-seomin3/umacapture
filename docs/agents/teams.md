@@ -12,7 +12,8 @@ staff chats, replace existing task owners, or authorize their product backlogs.
 | Team | Primary responsibility | Typical boundaries and coordination |
 | --- | --- | --- |
 | General Team | Coordinate approved priorities, integration, shared contracts, project guidance and documentation, CI, Windows builds/packages and release readiness. | Coordinate #11/#15 and separately approved #16 work. Domain teams maintain documentation and validation for their own changes. Coordination does not require General approval of every routine implementation choice. |
-| Recognition Team | Capture, scene scraping/stitching, recognition, the independent Korean-factor postprocessor, factor ID/star/group correctness and native record production. | Own producer behavior such as #24. Preserve Japanese paths and the accepted #5 offline boundary; changing team structure does not transfer separately managed deliveries such as PR #26. |
+| Recognition Team | Capture, scene scraping/stitching, recognition, the independent Korean-factor postprocessor, factor ID/star/group correctness and native record production. | Own producer behavior such as #24 and technical acceptance of capture evidence. Preserve Japanese paths, the accepted #5 offline boundary and separately managed deliveries such as PR #26. |
+| Capture Data Team (Windows, under Recognition) | Verify Windows source evidence within existing authorizations, including capture/version bindings, hashes and correspondence to original records or images. | Preserve authorized originals and prepare evidence for Recognition. Recognition owns the technical verdict. Collabo coordinates authorized transfers and intake. General coordinates Windows builds and release readiness. |
 | App Team | Flutter UI/localization, settings/presets, statistics/filters, local storage and consumer/export behavior. | Own display and aggregation work such as #10/#21/#22/#23. Coordinate record semantics with Recognition and final Windows packaging with General. |
 | Collabo Team | Coordinate Scout/Evaluator requests, bounded source availability checks, authorized private artifact designation/transfer, and source/version/hash/intake-state records. | Retain existing handoffs. Recognition/App or the receiving repository's responsible team validates technical meaning; successful transfer is not validation, acceptance or feature completion. |
 
@@ -20,6 +21,9 @@ Issue references illustrate routing, not implementation authorization or current
 completion. Refresh the relevant issue, latest owner corrections, active PR and
 source before acting. A dated status page or an open issue alone is insufficient.
 These domains do not give one team exclusive ownership of whole directories.
+
+The [owner decision on Windows evidence support](https://github.com/The-team-seomin3/global-agent-settings/issues/170#issuecomment-7058176097)
+records Capture Data Team's placement under Recognition.
 
 ## General Team manager
 
@@ -45,7 +49,8 @@ These domains do not give one team exclusive ownership of whole directories.
    issue before dependent cross-team edits; General coordinates unresolved overlap.
 2. **Use the appropriate channel.** Design-team proposals, questions, evidence and
    decisions belong in the relevant GitHub issue; independent review uses a scoped
-   submitted PR. For an authorized development-team handoff, verify the existing
+   submitted PR. Use the issue-based procedure below for Windows source evidence.
+   For other authorized development-team handoffs, verify the existing
    destination chat and repository, then transmit the bounded task under applicable
    standing/user authorization. Do not create a chat without an explicit request.
    If no destination is established, ask for that target rather than inventing one.
@@ -68,6 +73,24 @@ These domains do not give one team exclusive ownership of whole directories.
    or monitoring. Reuse the [research handoff and storage rules](contracts.md#research-handoffs).
    Preserve existing publication, review/merge, deployment and installed-settings
    protections. Keep private paths and raw game/account material out of public posts.
+
+### Linux and Windows source-evidence handoff
+
+1. Linux Recognition Team posts the request on the relevant umacapture work
+   issue. Include the batch or artifact, the evidence needed and the expected
+   outcome. Mark the Windows-dependent work as waiting and continue independent
+   Linux work.
+2. Windows Capture Data Team checks pending issues when the owner returns home
+   and Windows is available. Verify the authorized source evidence and report
+   the scope checked, findings and any missing evidence on the same issue. Use
+   the established private handoff for any separately authorized data transfer.
+3. Capture Data Team may send a Windows-to-Linux completion notification with
+   the result permalink if the existing destination chat is verified, authorized
+   and available. Linux-to-Windows chat is unavailable. The issue records the
+   handoff even without a chat notification. No wake-up, polling or retry is
+   required.
+4. Recognition verifies the received evidence and records technical acceptance
+   or any remaining work on the same issue.
 
 ## Validation and staffing
 
