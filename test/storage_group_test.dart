@@ -4,7 +4,10 @@ import 'dart:io';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:umacapture/const.dart';
+import 'package:umacapture/src/core/app_variant.dart';
+import 'package:umacapture/src/core/bootstrap.dart';
 import 'package:umacapture/src/core/fs/fs_backend.dart';
 import 'package:umacapture/src/core/fs/record_directory_transaction.dart';
 import 'package:umacapture/src/core/path_entity.dart';
@@ -82,14 +85,22 @@ typedef PathJoin = ({String file, String base, String segment, bool onDerivedBas
 /// the same segment through on any base in any file. Adding to it is a visible act
 /// with a reason attached, which is what an escape hatch is allowed to cost.
 ///
-/// All four are the *inside* of a transaction slot — `<journal>/v1/<slot>/…` —
-/// reached from a local the same file derived from that journal's root, and the
-/// journal roots above them are two of the three `retired` resolves.
+/// These joins occur inside transaction slots, a short-lived system temp
+/// directory, or the selected export destination.
 const nestedSegmentExemptions = <({String file, String base, String segment})>{
   (file: 'record_directory_transaction.dart', base: 'slot', segment: 'payload'),
   (file: 'record_directory_transaction.dart', base: 'transactionDir', segment: 'payload'),
   (file: 'web_record_write_transaction.dart', base: 'slot', segment: 'desired'),
   (file: 'web_record_write_transaction.dart', base: 'slot', segment: 'superseded'),
+  (file: 'kr_factor_workflow.dart', base: 'temporary', segment: 'request.json'),
+  (file: 'kr_factor_workflow_io.dart', base: 'destination', segment: 'record-kr.json'),
+  (file: 'kr_factor_workflow_io.dart', base: 'destination', segment: 'evidence'),
+};
+
+// KR startup only inspects these JP paths to reject an overlapping root.
+const readOnlyPathExemptions = {
+  (file: 'bootstrap.dart', base: 'documentsDirectory', segment: 'umacapture'),
+  (file: 'bootstrap.dart', base: 'supportDirectory', segment: 'umacapture'),
 };
 
 /// Every directory name the app joins onto a path as a literal, with repeats —
@@ -239,6 +250,7 @@ Set<String> accountedDirectoryNames(PathInfo info) => {
   for (final dir in pathInfoDirectories(info).values) dir.name,
   for (final group in storageGroups)
     for (final entity in group.resolve(info)) entity.name,
+  for (final path in krWorkflowPaths(info, useKrDataRoot: true)) path.name,
   ...unmanagedDirectoryNames,
 };
 
@@ -332,12 +344,13 @@ void main() {
       // A name the app makes but this feature does not manage is accounted for
       // by being in [unmanagedDirectoryNames], which is a decision written down
       // rather than a spelling this check happens to miss.
-      final accounted = accountedDirectoryNames(layoutUnder('/root'));
+      final accounted = accountedDirectoryNames(layoutUnder('/root', dataRoot: DirectoryPath('/root/kr')));
       final joins = literalPathSegments(libSources());
       final unaccounted = {
         for (final join in joins)
           if (!accounted.contains(join.segment) &&
-              !nestedSegmentExemptions.contains((file: join.file, base: join.base, segment: join.segment)))
+              !nestedSegmentExemptions.contains((file: join.file, base: join.base, segment: join.segment)) &&
+              !readOnlyPathExemptions.contains((file: join.file, base: join.base, segment: join.segment)))
             '${join.file}: ${join.base} / ${join.segment}',
       };
       expect(
@@ -740,6 +753,101 @@ void main() {
       expect(unclassifiedScanRoots(info).map((e) => e.path), contains(dataRoot.path));
       expect(unclassifiedScanRoots(info).map((e) => e.path), isNot(contains(info.executableDir.path)));
       expect(unclassifiedScanRoots(info).map((e) => e.path), isNot(contains(info.downloadDir.path)));
+    });
+
+    test('KR workflow paths stay out of generic cleanup at their owned locations', () async {
+      final info = layoutUnder(root.path, dataRoot: DirectoryPath('${root.path}/elsewhere'));
+      write('support/$koreanBootstrapFileName');
+      write('support/$koreanDefaultDataDirName/kept.json');
+      write('elsewhere/$krWorkflowSettingsFileName');
+      write('elsewhere/$krWorkflowRunsDirName/retained-review.json');
+      write('elsewhere/$krWorkflowResultsDirName/record-kr.json');
+      write('documents/$krWorkflowResultsDirName/unrelated.json');
+
+      final paths = (await scanUnclassifiedEntries(info)).map((entry) => entry.entity.path).toSet();
+      expect(paths, {
+        (info.documentDir / krWorkflowResultsDirName).path,
+        if (!isKoreanFactorApp) ...[
+          info.dataRoot!.filePath(krWorkflowSettingsFileName).path,
+          (info.dataRoot! / krWorkflowRunsDirName).path,
+          (info.dataRoot! / krWorkflowResultsDirName).path,
+        ],
+      });
+    });
+
+    test('only the containing branch of a nested active KR root is excluded from cleanup', () async {
+      final parent = Platform.isWindows ? 'PROFILES' : 'profiles';
+      final info = layoutUnder(root.path, dataRoot: DirectoryPath('${root.path}/support/$parent/current'));
+      write('support/profiles/current/$krWorkflowRunsDirName/review.json');
+      write('support/profiles-old/unrelated.json');
+      final paths = (await scanUnclassifiedEntries(
+        info,
+        useKrDataRoot: true,
+      )).map((entry) => entry.entity.path).toSet();
+      expect(paths, {(info.supportDir / 'profiles-old').path});
+      expect(File('${root.path}/support/profiles/current/$krWorkflowRunsDirName/review.json').readAsStringSync(), 'x');
+    });
+
+    test('redirected support protects the active KR root ancestor and keeps its sibling', () async {
+      final physical = Directory(p.join(root.path, 'physical'))..createSync();
+      final alias = Link(p.join(root.path, 'roaming'));
+      write('physical/company/KR/profiles/current/$krWorkflowRunsDirName/review.json');
+      write('physical/company/KR/profiles-backup/unrelated.json');
+      if (Platform.isWindows) {
+        final result = await Process.run('cmd.exe', [
+          '/d',
+          '/c',
+          'mklink',
+          '/J',
+          'roaming',
+          'physical',
+        ], workingDirectory: root.path);
+        expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
+      } else {
+        alias.createSync(physical.path);
+      }
+      final (previousRoot, previousConfiguration, previousDegraded) = (
+        resolvedDataRoot,
+        configuredDataRoot,
+        dataRootDegraded,
+      );
+      addTearDown(() {
+        resolvedDataRoot = previousRoot;
+        configuredDataRoot = previousConfiguration;
+        dataRootDegraded = previousDegraded;
+      });
+      try {
+        final support = Directory(p.join(alias.path, 'company', 'KR'));
+        final documents = Directory(p.join(root.path, 'documents'))..createSync();
+        final active = await readKoreanDataRoot(
+          supportDirectory: support,
+          documentsDirectory: documents,
+          environment: {koreanDataRootEnvVar: p.join(support.path, 'profiles', 'current')},
+        );
+        expect(
+          active,
+          Directory(p.join(physical.path, 'company', 'KR', 'profiles', 'current')).resolveSymbolicLinksSync(),
+        );
+        final info = PathInfo(
+          documentDir: DirectoryPath(documents.path),
+          supportDir: DirectoryPath(support.path),
+          executableDir: DirectoryPath(p.join(root.path, 'exe')),
+          downloadDir: DirectoryPath(p.join(root.path, 'downloads')),
+          dataRoot: DirectoryPath(active),
+        );
+
+        final paths = (await scanUnclassifiedEntries(info, useKrDataRoot: true)).map((entry) => entry.entity.path);
+        expect(paths, [(info.supportDir / 'profiles-backup').path]);
+        final review = File(p.join(active, krWorkflowRunsDirName, 'review.json'));
+        expect(review.readAsStringSync(), 'x');
+      } finally {
+        if (Platform.isWindows) {
+          final result = await Process.run('cmd.exe', ['/d', '/c', 'rmdir', 'roaming'], workingDirectory: root.path);
+          expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
+        } else {
+          alias.deleteSync();
+        }
+      }
     });
 
     test('a data root that lands back on an existing root is walked once', () async {

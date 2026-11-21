@@ -30,10 +30,11 @@ $env:JAVA_HOME = 'C:\Users\kjahy\sdks\temurin-17.0.20.1\jdk-17.0.20.1+1'
 Release/Profile VC++ runtimes are discovered from the selected MSVC toolchain via
 CMake's `InstallRequiredSystemLibraries`, rather than copied from `System32`.
 Debug retains its existing system debug-runtime path and was not validated here.
-If an initial configure failed before bundle setup, the CMake cache may retain a
-`Program Files` install prefix. Reconfigure that build directory with
-`-DCMAKE_INSTALL_PREFIX=<absolute Release bundle directory>` before retrying;
-do not run the build as an administrator to install into `Program Files`.
+CMake resets the install prefix to the local `runner/<configuration>` bundle
+directory on every configure. Retry the same non-elevated build command after
+fixing the configure error. For JP/KR builds, use the
+[variant packaging script](windows-ocr-variants.md#local-builds) to copy each
+completed bundle before the next build reuses that directory.
 
 Check the exit code and actual MSBuild compile/link/install output. Preserve
 verbose logs with the local artifact. A successful configure, old executable or

@@ -6,6 +6,13 @@ import 'package:flutter/foundation.dart';
 /// location Hive opens stay in lock-step.
 const String settingsBoxDirName = "settings";
 
+// Paths shared by the KR workflow and the storage view.
+const String koreanBootstrapFileName = 'data_root_kr.json';
+const String koreanDefaultDataDirName = 'kr-factor-app';
+const String krWorkflowSettingsFileName = 'kr-workflow-settings.json';
+const String krWorkflowRunsDirName = 'kr-runs';
+const String krWorkflowResultsDirName = 'kr-results';
+
 /// Name of the crash-reporting SDK's own database directory, created directly
 /// under the application support directory.
 ///

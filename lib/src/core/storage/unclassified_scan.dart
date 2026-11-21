@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import '/const.dart';
+import '/src/core/app_variant.dart';
 import '/src/core/path_entity.dart';
 import '/src/core/providers.dart';
 import '/src/core/storage/storage_group.dart';
@@ -19,13 +22,28 @@ List<DirectoryPath> unclassifiedScanRoots(PathInfo info) {
   return roots.where((root) => seen.add(root.path)).toList();
 }
 
+/// Paths that the KR review workflow owns. Generic storage cleanup must leave
+/// the bootstrap, saved settings, review runs and reviewed outputs in place.
+List<PathEntity> krWorkflowPaths(PathInfo info, {required bool useKrDataRoot}) {
+  final root = useKrDataRoot ? info.dataRoot : null;
+  return [
+    info.supportDir.filePath(koreanBootstrapFileName),
+    info.supportDir / koreanDefaultDataDirName,
+    if (root != null) ...[
+      root.filePath(krWorkflowSettingsFileName),
+      root / krWorkflowRunsDirName,
+      root / krWorkflowResultsDirName,
+    ],
+  ];
+}
+
 /// Every path this app names, which is what the residue is the residue *of*.
 ///
 /// Built from [pathInfoDirectories] and the groups themselves rather than from a
 /// list written out here, so a directory or a group added later is subtracted
 /// without anyone remembering to come back. A hand-written list is exactly the
 /// thing that would leave a new group's directory showing up as "unclassified".
-Set<String> _pathsTheAppNames(PathInfo info) {
+Set<String> _pathsTheAppNames(PathInfo info, {required bool useKrDataRoot}) {
   return {
     // The base directories. They are fields, not getters, so they are not in
     // `pathInfoDirectories`; a root that nests inside another root (as on web,
@@ -36,6 +54,7 @@ Set<String> _pathsTheAppNames(PathInfo info) {
     info.executableDir.path,
     info.downloadDir.path,
     ?info.dataRoot?.path,
+    for (final path in krWorkflowPaths(info, useKrDataRoot: useKrDataRoot)) path.path,
     for (final dir in pathInfoDirectories(info).values) dir.path,
     for (final group in storageGroups)
       if (!group.isResidualBucket && group.nameFilter == null)
@@ -52,8 +71,10 @@ Set<String> _pathsTheAppNames(PathInfo info) {
 ///
 /// Returns the listing metadata as enumerated, so a caller showing sizes does not
 /// pay a second filesystem round trip per entry.
-Future<List<FsListing>> scanUnclassifiedEntries(PathInfo info) async {
-  final known = _pathsTheAppNames(info);
+Future<List<FsListing>> scanUnclassifiedEntries(PathInfo info, {bool useKrDataRoot = isKoreanFactorApp}) async {
+  final known = _pathsTheAppNames(info, useKrDataRoot: useKrDataRoot);
+  final activeKrRoot = useKrDataRoot ? info.dataRoot : null;
+  final activeKrPath = activeKrRoot == null ? null : await _resolveDirectory(activeKrRoot);
   final filtered = storageGroups.where((group) => group.nameFilter != null).toList();
   final residue = <FsListing>[];
   for (final root in unclassifiedScanRoots(info)) {
@@ -74,6 +95,17 @@ Future<List<FsListing>> scanUnclassifiedEntries(PathInfo info) async {
       if (known.contains(entity.path)) {
         continue;
       }
+      if (activeKrRoot != null && entity is DirectoryPath) {
+        // A redirected support path can name the same directory as the
+        // physical KR root. Withhold directories whose identity is unknown.
+        if (activeKrPath == null) continue;
+        final candidatePath = await _resolveDirectory(entity);
+        if (candidatePath == null ||
+            PathEntity.context.equals(candidatePath, activeKrPath) ||
+            PathEntity.context.isWithin(candidatePath, activeKrPath)) {
+          continue;
+        }
+      }
       // A filtered group (the font cache) owns matching children of a directory
       // it does not own whole, so its members are subtracted by name here rather
       // than by path above.
@@ -84,6 +116,14 @@ Future<List<FsListing>> scanUnclassifiedEntries(PathInfo info) async {
     }
   }
   return residue;
+}
+
+Future<String?> _resolveDirectory(DirectoryPath directory) async {
+  try {
+    return await Directory(directory.path).resolveSymbolicLinks();
+  } on FileSystemException {
+    return null;
+  }
 }
 
 /// [listed] renamed as a child of the [root] this scan is already holding.

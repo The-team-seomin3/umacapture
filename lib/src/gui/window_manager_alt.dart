@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '/src/gui/common.dart';
+import '/src/core/app_variant.dart';
 
 class WindowCaptionButtonAlt extends StatefulWidget {
   final Widget icon;
@@ -93,7 +94,7 @@ class _WindowCaptionAltState extends ConsumerState<WindowCaptionAlt> with Window
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: Image.asset("assets/image/app_icon.png", filterQuality: FilterQuality.medium, height: 24),
                   ),
-                  Text('umacapture', style: theme.textTheme.bodyMedium!),
+                  Text(applicationTitle, style: theme.textTheme.bodyMedium!),
                 ],
               ),
             ),

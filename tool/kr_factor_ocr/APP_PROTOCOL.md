@@ -20,10 +20,10 @@ or install its runtime. The host application configures its interpreter/script
 paths and displays process errors; no separate manual producer invocation is
 required when the application orchestrates this protocol.
 
-This portable source slice publishes the Python adapter/helper, their tests and
-manuals. The Flutter UI, native Windows runner and executable/package source are
-separate delivery scopes. Linux process/fixture checks do not establish their
-Windows runtime acceptance.
+The [KR review app](../../docs/kr-factor-app.md) uses this same adapter. Its
+[Windows variant build](../../docs/windows-ocr-variants.md) packages the adapter
+and its adjacent CLI helper. Linux process and fixture checks cover the protocol.
+Validate the packaged application separately on Windows.
 
 ## Transport and status
 
