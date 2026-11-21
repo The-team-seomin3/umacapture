@@ -286,14 +286,18 @@ def load_context(args):
     return ctx
 
 
+def original_observations(source):
+    return {"raw_ocr": source["raw_text"], "baseline_sid": source["baseline_sid"],
+            "baseline_star": source["star"]}
+
+
 def review_template(ctx):
     rows = []
     for source, binding in zip(ctx.rows, ctx.bindings["rows"]):
         rows.append({**binding, "decision": "unreviewed", "observed_name": None, "master_name": None,
                      "star": None, "app_sid": None, "factor_id": None, "factor_group_id": None,
                      "name_difference_reason": "", "evidence": "",
-                     "raw_ocr": source["raw_text"], "baseline_sid": source["baseline_sid"],
-                     "baseline_star": source["star"]})
+                     **original_observations(source)})
     return {"review_version": 1, "bindings": ctx.bindings, "reviewer": "",
             "coverage": {**{key: False for key in COVERAGE}, "evidence": ""}, "rows": rows}
 
@@ -341,6 +345,9 @@ def verify_review(ctx, review):
         for key, value in binding.items():
             if canonical(decision[key]) != canonical(value):
                 raise ValueError("Review row/crop/order mismatch")
+        for key, value in original_observations(row).items():
+            if key not in decision or canonical(decision[key]) != canonical(value):
+                raise ValueError(f"Review field {key} must preserve its original observation")
         if decision["decision"] not in ("verified", "confirmed"):
             raise ValueError("Every factor must be independently verified or explicitly confirmed")
         evidence = text(decision["evidence"])
