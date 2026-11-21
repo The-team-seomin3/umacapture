@@ -1,4 +1,5 @@
 import '/const.dart';
+import '/src/core/app_variant.dart';
 import '/src/core/path_entity.dart';
 import '/src/core/providers.dart';
 import '/src/core/storage/storage_group.dart';
@@ -19,6 +20,21 @@ List<DirectoryPath> unclassifiedScanRoots(PathInfo info) {
   return roots.where((root) => seen.add(root.path)).toList();
 }
 
+/// Paths that the KR review workflow owns. Generic storage cleanup must leave
+/// the bootstrap, saved settings, review runs and reviewed outputs in place.
+List<PathEntity> krWorkflowPaths(PathInfo info, {required bool useKrDataRoot}) {
+  final root = useKrDataRoot ? info.dataRoot : null;
+  return [
+    info.supportDir.filePath(koreanBootstrapFileName),
+    info.supportDir / koreanDefaultDataDirName,
+    if (root != null) ...[
+      root.filePath(krWorkflowSettingsFileName),
+      root / krWorkflowRunsDirName,
+      root / krWorkflowResultsDirName,
+    ],
+  ];
+}
+
 /// Every path this app names, which is what the residue is the residue *of*.
 ///
 /// Built from [pathInfoDirectories] and the groups themselves rather than from a
@@ -36,6 +52,7 @@ Set<String> _pathsTheAppNames(PathInfo info) {
     info.executableDir.path,
     info.downloadDir.path,
     ?info.dataRoot?.path,
+    for (final path in krWorkflowPaths(info, useKrDataRoot: isKoreanFactorApp)) path.path,
     for (final dir in pathInfoDirectories(info).values) dir.path,
     for (final group in storageGroups)
       if (!group.isResidualBucket && group.nameFilter == null)

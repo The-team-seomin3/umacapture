@@ -19,6 +19,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '/const.dart';
 import '/src/core/app_logger.dart';
 import '/src/core/app_variant.dart';
 
@@ -85,7 +86,6 @@ Future<File> _bootstrapFile() async {
   return File(p.join(supportDir.path, isKoreanFactorApp ? koreanBootstrapFileName : bootstrapFileName));
 }
 
-const String koreanBootstrapFileName = 'data_root_kr.json';
 const String koreanDataRootEnvVar = 'UMACAPTURE_KR_DATA_ROOT';
 
 class KoreanDataRootException implements Exception {
@@ -120,7 +120,7 @@ Future<String> readKoreanDataRoot({
         }
         root = value['data_root'] as String;
       } else {
-        root = p.join(supportDirectory.path, 'kr-factor-app');
+        root = p.join(supportDirectory.path, koreanDefaultDataDirName);
         createDefault = true;
       }
     }
@@ -130,7 +130,7 @@ Future<String> readKoreanDataRoot({
     }
     final actual = Directory(root).existsSync()
         ? Directory(root).resolveSymbolicLinksSync()
-        : p.join(supportDirectory.resolveSymbolicLinksSync(), 'kr-factor-app');
+        : p.join(supportDirectory.resolveSymbolicLinksSync(), koreanDefaultDataDirName);
     final protected = <String>[p.join(documentsDirectory.path, 'umacapture'), p.join(supportDirectory.path, 'modules')];
     final jpEnv = environment[dataRootOverrideEnvVar];
     if (jpEnv != null && jpEnv.trim().isNotEmpty) protected.add(jpEnv);

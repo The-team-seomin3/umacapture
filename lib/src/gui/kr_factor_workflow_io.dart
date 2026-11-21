@@ -8,7 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
-import '/src/core/bootstrap.dart';
+import '/const.dart';
 import '/src/core/kr_factor_workflow.dart';
 import '/src/core/providers.dart';
 
@@ -63,7 +63,7 @@ class _KrFactorWorkflowPanelState extends ConsumerState<KrFactorWorkflowPanel> {
   String _status = '준비 · 한국어 인자 OCR을 아직 실행하지 않았습니다.';
   String? _error;
 
-  File get _settingsFile => File(p.join(widget.dataRoot, 'kr-workflow-settings.json'));
+  File get _settingsFile => File(p.join(widget.dataRoot, krWorkflowSettingsFileName));
 
   @override
   void initState() {
@@ -71,7 +71,7 @@ class _KrFactorWorkflowPanelState extends ConsumerState<KrFactorWorkflowPanel> {
     final defaults = {
       'adapter': p.join(p.dirname(Platform.resolvedExecutable), 'tool', 'kr_factor_ocr', 'kr_factor_app.py'),
       'working_dir': _newWorkPath(),
-      'output_root': p.join(widget.dataRoot, 'kr-results'),
+      'output_root': p.join(widget.dataRoot, krWorkflowResultsDirName),
     };
     for (final key in labels.keys) {
       _fields[key] = TextEditingController(text: defaults[key] ?? '');
@@ -90,7 +90,7 @@ class _KrFactorWorkflowPanelState extends ConsumerState<KrFactorWorkflowPanel> {
     }
   }
 
-  String _newWorkPath() => p.join(widget.dataRoot, 'kr-runs', const Uuid().v4());
+  String _newWorkPath() => p.join(widget.dataRoot, krWorkflowRunsDirName, const Uuid().v4());
 
   @override
   void dispose() {

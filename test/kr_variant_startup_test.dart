@@ -7,6 +7,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
+import 'package:umacapture/const.dart';
 import 'package:umacapture/src/core/app_variant.dart';
 import 'package:umacapture/src/core/bootstrap.dart';
 import 'package:umacapture/src/core/path_entity.dart';

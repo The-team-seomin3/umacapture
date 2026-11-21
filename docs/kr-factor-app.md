@@ -21,6 +21,10 @@ retry; it never migrates files. An environment override takes precedence and mus
 be corrected in the launching environment. The generic JP data-migration UI is
 not offered in the KR app.
 
+The storage manager leaves the KR bootstrap, default root and active KR
+workflow settings, review runs and default results out of unclassified cleanup.
+Keep saved review data and exports with their corresponding capture evidence.
+
 The home screen shows the actual executable, data/settings/capture/module paths.
 Configure the local Python executable (with the producer's pinned dependencies),
 adapter script, completed three-tab capture folder, Korean ONNX model, read-only

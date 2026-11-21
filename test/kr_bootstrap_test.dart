@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
+import 'package:umacapture/const.dart';
 import 'package:umacapture/src/core/bootstrap.dart';
 
 void main() {
