@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import '/const.dart';
 import '/src/core/app_variant.dart';
 import '/src/core/path_entity.dart';
@@ -72,6 +74,7 @@ Set<String> _pathsTheAppNames(PathInfo info, {required bool useKrDataRoot}) {
 Future<List<FsListing>> scanUnclassifiedEntries(PathInfo info, {bool useKrDataRoot = isKoreanFactorApp}) async {
   final known = _pathsTheAppNames(info, useKrDataRoot: useKrDataRoot);
   final activeKrRoot = useKrDataRoot ? info.dataRoot : null;
+  final activeKrPath = activeKrRoot == null ? null : await _resolveDirectory(activeKrRoot);
   final filtered = storageGroups.where((group) => group.nameFilter != null).toList();
   final residue = <FsListing>[];
   for (final root in unclassifiedScanRoots(info)) {
@@ -92,13 +95,16 @@ Future<List<FsListing>> scanUnclassifiedEntries(PathInfo info, {bool useKrDataRo
       if (known.contains(entity.path)) {
         continue;
       }
-      // A recursive delete of an ancestor would also delete the active KR
-      // data root, even when the root itself was already subtracted above.
-      if (activeKrRoot != null &&
-          entity is DirectoryPath &&
-          (PathEntity.context.equals(entity.path, activeKrRoot.path) ||
-              PathEntity.context.isWithin(entity.path, activeKrRoot.path))) {
-        continue;
+      if (activeKrRoot != null && entity is DirectoryPath) {
+        // A redirected support path can name the same directory as the
+        // physical KR root. Withhold directories whose identity is unknown.
+        if (activeKrPath == null) continue;
+        final candidatePath = await _resolveDirectory(entity);
+        if (candidatePath == null ||
+            PathEntity.context.equals(candidatePath, activeKrPath) ||
+            PathEntity.context.isWithin(candidatePath, activeKrPath)) {
+          continue;
+        }
       }
       // A filtered group (the font cache) owns matching children of a directory
       // it does not own whole, so its members are subtracted by name here rather
@@ -110,6 +116,14 @@ Future<List<FsListing>> scanUnclassifiedEntries(PathInfo info, {bool useKrDataRo
     }
   }
   return residue;
+}
+
+Future<String?> _resolveDirectory(DirectoryPath directory) async {
+  try {
+    return await Directory(directory.path).resolveSymbolicLinks();
+  } on FileSystemException {
+    return null;
+  }
 }
 
 /// [listed] renamed as a child of the [root] this scan is already holding.

@@ -4,8 +4,10 @@ import 'dart:io';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:umacapture/const.dart';
 import 'package:umacapture/src/core/app_variant.dart';
+import 'package:umacapture/src/core/bootstrap.dart';
 import 'package:umacapture/src/core/fs/fs_backend.dart';
 import 'package:umacapture/src/core/fs/record_directory_transaction.dart';
 import 'package:umacapture/src/core/path_entity.dart';
@@ -784,6 +786,68 @@ void main() {
       )).map((entry) => entry.entity.path).toSet();
       expect(paths, {(info.supportDir / 'profiles-old').path});
       expect(File('${root.path}/support/profiles/current/$krWorkflowRunsDirName/review.json').readAsStringSync(), 'x');
+    });
+
+    test('redirected support protects the active KR root ancestor and keeps its sibling', () async {
+      final physical = Directory(p.join(root.path, 'physical'))..createSync();
+      final alias = Link(p.join(root.path, 'roaming'));
+      write('physical/company/KR/profiles/current/$krWorkflowRunsDirName/review.json');
+      write('physical/company/KR/profiles-backup/unrelated.json');
+      if (Platform.isWindows) {
+        final result = await Process.run('cmd.exe', [
+          '/d',
+          '/c',
+          'mklink',
+          '/J',
+          'roaming',
+          'physical',
+        ], workingDirectory: root.path);
+        expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
+      } else {
+        alias.createSync(physical.path);
+      }
+      final (previousRoot, previousConfiguration, previousDegraded) = (
+        resolvedDataRoot,
+        configuredDataRoot,
+        dataRootDegraded,
+      );
+      addTearDown(() {
+        resolvedDataRoot = previousRoot;
+        configuredDataRoot = previousConfiguration;
+        dataRootDegraded = previousDegraded;
+      });
+      try {
+        final support = Directory(p.join(alias.path, 'company', 'KR'));
+        final documents = Directory(p.join(root.path, 'documents'))..createSync();
+        final active = await readKoreanDataRoot(
+          supportDirectory: support,
+          documentsDirectory: documents,
+          environment: {koreanDataRootEnvVar: p.join(support.path, 'profiles', 'current')},
+        );
+        expect(
+          active,
+          Directory(p.join(physical.path, 'company', 'KR', 'profiles', 'current')).resolveSymbolicLinksSync(),
+        );
+        final info = PathInfo(
+          documentDir: DirectoryPath(documents.path),
+          supportDir: DirectoryPath(support.path),
+          executableDir: DirectoryPath(p.join(root.path, 'exe')),
+          downloadDir: DirectoryPath(p.join(root.path, 'downloads')),
+          dataRoot: DirectoryPath(active),
+        );
+
+        final paths = (await scanUnclassifiedEntries(info, useKrDataRoot: true)).map((entry) => entry.entity.path);
+        expect(paths, [(info.supportDir / 'profiles-backup').path]);
+        final review = File(p.join(active, krWorkflowRunsDirName, 'review.json'));
+        expect(review.readAsStringSync(), 'x');
+      } finally {
+        if (Platform.isWindows) {
+          final result = await Process.run('cmd.exe', ['/d', '/c', 'rmdir', 'roaming'], workingDirectory: root.path);
+          expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
+        } else {
+          alias.deleteSync();
+        }
+      }
     });
 
     test('a data root that lands back on an existing root is walked once', () async {

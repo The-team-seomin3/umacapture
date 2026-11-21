@@ -25,7 +25,8 @@ not offered in the KR app.
 
 The storage manager leaves the KR bootstrap, default root and active KR
 workflow settings, review runs and default results out of unclassified cleanup.
-An unclassified directory containing the active KR root is also excluded.
+An unclassified directory containing the active KR root is also excluded,
+including when a symlink or junction redirects the app support directory.
 Keep saved review data and exports with their corresponding capture evidence.
 
 The home screen shows the actual executable, data/settings/capture/module paths.
