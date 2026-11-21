@@ -155,12 +155,81 @@ class KrReviewSession {
         data['source_image'] is! String) {
       throw const KrAdapterException('검토 세션 응답이 올바르지 않습니다.');
     }
-    return KrReviewSession._(data, review);
+    final session = KrReviewSession._(data, review);
+    if (review.containsKey('owner_handoff')) session._readOwnerHandoff();
+    return session;
   }
 
   List<Map<String, dynamic>> get rows => (data['rows'] as List).cast<Map<String, dynamic>>();
   List<Map<String, dynamic>> get decisions => (review['rows'] as List).cast<Map<String, dynamic>>();
-  bool get ready => data['ready_to_export'] == true;
+  final ownerRequests = <int, Map<String, dynamic>>{};
+  bool get agentReviewComplete => review['owner_handoff']?['agent_review_complete'] == true;
+  Iterable<MapEntry<int, Map<String, dynamic>>> get unanswered =>
+      ownerRequests.entries.where((entry) => entry.value['answer'] == null);
+  bool get ready =>
+      agentReviewComplete && unanswered.isEmpty && data['ready_to_export'] == true && confirmedCount == rows.length;
+
+  void _readOwnerHandoff() {
+    const invalid = KrAdapterException('오너 검토 요청 형식 또는 원본 행 연결이 올바르지 않습니다.');
+    final handoff = review['owner_handoff'];
+    if (handoff is! Map ||
+        handoff.length != 3 ||
+        handoff['version'] is! int ||
+        handoff['version'] != 1 ||
+        handoff['agent_review_complete'] is! bool ||
+        handoff['requests'] is! List) {
+      throw invalid;
+    }
+    final indices = <(String, int), int>{};
+    for (var i = 0; i < decisions.length; i++) {
+      final group = decisions[i]['group'];
+      final index = decisions[i]['index'];
+      if (group is! String ||
+          index is! int ||
+          rows[i]['group'] != group ||
+          rows[i]['index'] != index ||
+          indices.containsKey((group, index))) {
+        throw invalid;
+      }
+      indices[(group, index)] = i;
+    }
+    const keys = {'group', 'index', 'name_crop_sha256', 'star_crop_sha256', 'question', 'reason', 'answer'};
+    for (final request in handoff['requests'] as List) {
+      if (request is! Map<String, dynamic> ||
+          request.length != keys.length ||
+          !keys.every(request.containsKey) ||
+          request['group'] is! String ||
+          request['index'] is! int) {
+        throw invalid;
+      }
+      final i = indices[(request['group'] as String, request['index'] as int)];
+      if (i == null || ownerRequests.containsKey(i)) throw invalid;
+      for (final key in ['name_crop_sha256', 'star_crop_sha256']) {
+        final digest = request[key];
+        if (digest is! String || !RegExp(r'^[0-9a-f]{64}$').hasMatch(digest) || digest != decisions[i][key]) {
+          throw invalid;
+        }
+      }
+      for (final key in ['question', 'reason', if (request['answer'] != null) 'answer']) {
+        if (request[key] is! String || (request[key] as String).trim().isEmpty) throw invalid;
+      }
+      ownerRequests[i] = request;
+    }
+  }
+
+  Map<String, dynamic> reviewWithAnswer(int index, String answer) {
+    if (answer.trim().isEmpty || !ownerRequests.containsKey(index) || ownerRequests[index]!['answer'] != null) {
+      throw const KrAdapterException('미해결 요청에 답변을 입력하세요.');
+    }
+    final updated = jsonDecode(jsonEncode(review)) as Map<String, dynamic>;
+    final requests = updated['owner_handoff']['requests'] as List;
+    final request = requests.singleWhere(
+      (r) => r['group'] == decisions[index]['group'] && r['index'] == decisions[index]['index'],
+    );
+    request['answer'] = answer.trim();
+    return updated;
+  }
+
   String get reviewSha256 => data['review_sha256'] as String;
   List<String> get issues => (data['review_issues'] as List? ?? []).map((e) => '$e').toList();
   int get confirmedCount => decisions.where((r) => r['decision'] == 'verified' || r['decision'] == 'confirmed').length;
