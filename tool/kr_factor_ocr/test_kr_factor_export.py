@@ -108,6 +108,27 @@ class VerifiedExport(unittest.TestCase):
         self.assertTrue(all(r["kr"]["id"] == 0 for r in receipt["rows"]))
         self.assertFalse(kr.read_json(self.diagnostics / "diagnostic.json")["completed"])
 
+    def test_legacy_diagnostic_retains_its_original_candidates(self):
+        path = self.diagnostics / "diagnostic.json"
+        legacy = kr.read_json(path)
+        legacy["diagnostic_version"] = 1
+        for row in legacy["rows"]:
+            del row["lookup_stage"], row["master_id_count"]
+        first = legacy["rows"][0]
+        first.update(raw_text="가", candidates=[], status="unresolved")
+        path.write_bytes(exporter.encoded(legacy))
+        before = path.read_bytes()
+        ctx = exporter.load_context(self.args)
+        self.assertEqual(ctx.rows[0]["candidates"], [])
+        self.assertEqual(ctx.rows[0]["lookup_stage"], "legacy")
+        self.assertEqual(kr.Resolver(list(ctx.factors.values()), [{"sid": 0, "gid": 101}])
+                         .recommendation("가", 2)["lookup_stage"], "exact")
+        fresh = self.root / "legacy-fresh.json"
+        args = argparse.Namespace(**{**vars(self.args), "review": fresh})
+        self.assertFalse(exporter.prepare_review(args)["completed"])
+        self.assertTrue(all(r["decision"] == "unreviewed" for r in kr.read_json(fresh)["rows"]))
+        self.assertEqual(path.read_bytes(), before)
+
     def test_preparation_is_unreviewed_and_refuses_reuse(self):
         self.args.review = self.root / "new-review.json"
         result = exporter.prepare_review(self.args)

@@ -89,7 +89,11 @@ no candidates are silently accepted.
 Use the shared request to resume or validate a saved session. Both recheck source,
 model/module/master, diagnostic/crop identities, tool bindings and the saved
 review. Return the session DTO: exit 2 for an incomplete review, exit 0 for a valid
-fully reviewed draft. Neither exports a record.
+fully reviewed draft. Neither exports a record. Candidates are read in their
+original order from the bound diagnostic. Resuming or editing a draft never
+reruns lookup for those original candidates. Version 1 diagnostics retain their
+saved list with stage `legacy`. A stale tool binding returns exit 1 and
+preserves the draft and diagnostic. Prepare a fresh review for the active tools.
 
 ### `lookup`
 
@@ -98,7 +102,7 @@ request are required. Additional fields:
 
 | Field | Meaning |
 | --- | --- |
-| `query` | Text substring; default empty allows browsing. Existing NFC/whitespace/case normalization only; punctuation stays significant. |
+| `query` | Text substring; default empty allows browsing. Uses the diagnostic whole-name/prefix key rules. A nonblank query that normalizes to an empty key yields no matches. |
 | `star` | Optional integer 1–3, or null for all stars. |
 | `offset` | Nonnegative integer, default 0. |
 | `limit` | Integer 1–200, default 50. |
@@ -154,7 +158,10 @@ Success is exit 0 with `status: "completed"`, `completed: true`, `output`,
 reopens the published output and paired receipt and checks their hashes and the
 allowed-path contract. Output bytes are authoritative: do not round-trip them
 through a serializer that upgrades or discards source fields. Non-factor values
-remain unverified for Korean accuracy.
+remain unverified for Korean accuracy. Each receipt row adds
+`recommendation_comparison` alongside the existing JP/KR comparison.
+It retains the initial candidate, stage and master ID count, and records
+`identity_outcome` and `ocr_spelling_changed` separately.
 
 The existing lock/replacement/staging behavior is retained. An interrupted writer
 can leave a stale lock; cancellation never authorizes removing another writer's
@@ -177,6 +184,7 @@ lock or guessing a replacement pin.
 
 Each diagnostic row contains `group`, one-based `index`, `baseline_sid`, `star`,
 `name_rect`, `star_rect`, absolute `name_crop`/`star_crop`, `raw_text`, `score`,
+`lookup_stage`, `master_id_count`,
 `candidates`, `status` and `verified: false`. Diagnostic status is `candidate_only`
 or `unresolved` and is distinct from the response status. Selected decisions are
 in `review.rows`; diagnostic `verified` never promotes an OCR suggestion.

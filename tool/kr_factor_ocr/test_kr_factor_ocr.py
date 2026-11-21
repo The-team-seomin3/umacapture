@@ -105,15 +105,40 @@ class Identity(unittest.TestCase):
         self.assertEqual(candidates[0]["factor_id"], 102)
         self.assertEqual(candidates[0]["factor_group_id"], 1)
 
-    def test_symbols_never_silently_corrected(self):
+    def test_narrow_lookup_symbols_preserve_display_spelling_and_plus(self):
         resolver = kr.Resolver(self.factors, self.app)
-        for name in ("가", "가ㅇ", "가O", "가○+", "가(○", "가·○"):
+        expected = resolver.recommendation("가", 1)
+        self.assertEqual(expected["lookup_stage"], "exact")
+        self.assertEqual([c["name_ko"] for c in expected["candidates"]], ["가○"])
+        for name in ("가ㅇ", "가O", "가○+", "가(○", "가·○"):
             with self.subTest(name=name):
                 candidates, status = resolver.candidates(name, 1)
                 self.assertEqual(status, "unresolved")
                 self.assertTrue(all(c["match"] == "suggestion" for c in candidates))
         candidates, _ = resolver.candidates("가○＋", 1)
         self.assertEqual(candidates[0]["app_sids"], [7])
+
+    def test_lookup_stage_and_identity_counts_at_the_recorded_star(self):
+        factors = self.factors + [
+            {"factor_id": 301, "factor_group_id": 3, "stars": 1, "name_ko": "달"},
+            {"factor_id": 302, "factor_group_id": 3, "stars": 2, "name_ko": "달・빛○"},
+            {"factor_id": 402, "factor_group_id": 4, "stars": 2, "name_ko": "달·빛"},
+        ]
+        resolver = kr.Resolver(factors, self.app + [{"sid": 8, "gid": 301}])
+        exact = resolver.recommendation(" 달·빛 ○ ", 2)
+        self.assertEqual(exact["lookup_stage"], "exact")
+        self.assertEqual(exact["master_id_count"], 2)
+        self.assertEqual(exact["status"], "unresolved")
+        self.assertEqual([(c["factor_id"], c["app_sids"]) for c in exact["candidates"]],
+                         [(302, [8]), (402, [])])
+        prefix = resolver.recommendation("달", 2)
+        self.assertEqual(prefix["lookup_stage"], "prefix")
+        self.assertEqual(prefix["candidates"], [
+            {**candidate, "match": "suggestion"} for candidate in exact["candidates"]
+        ])
+        self.assertEqual(resolver.recommendation("달・벗○", 2)["lookup_stage"], "fuzzy")
+        self.assertEqual(resolver.recommendation(" ○ ", 2),
+                         {"lookup_stage": "empty", "master_id_count": 0, "candidates": [], "status": "unresolved"})
 
     def test_ambiguous_missing_and_duplicate_ids(self):
         app = self.app + [{"sid": 9, "gid": 101}]

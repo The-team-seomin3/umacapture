@@ -91,6 +91,8 @@ class AppAdapter(unittest.TestCase):
         self.assertTrue(result["matches"][0]["selectable"])
         self.assertEqual(result["matches"][0]["factor_id"], 102)
         self.assertEqual(kr.digest(self.fixture.master), before)
+        self.assertEqual(self.call("lookup", {**request, "query": "가"})[1]["total"], 1)
+        self.assertEqual(self.call("lookup", {**request, "query": " ○ "})[1]["total"], 0)
         self.assertEqual(self.call("lookup", {**request, "query": "", "limit": 1, "offset": 1})[1]["total"], 2)
         self.assertEqual(self.call("lookup", {**request, "query": "", "star": None})[1]["total"], 5)
         self.assertEqual(self.call("lookup", {**request, "factor_info_sha256": "0" * 64})[0], 1)
@@ -113,6 +115,56 @@ class AppAdapter(unittest.TestCase):
         review["coverage"]["complete_capture"] = False
         self.assertEqual(self.save(partial, review)[0], 2)
         self.assertEqual(self.call("export", request)[0], 2)
+
+    def test_resume_explicit_decisions_and_compare_to_original_recommendation(self):
+        self.inference.return_value = [("가", .99)] * 3
+        result = self.start()
+        diagnostic = Path(result["diagnostics"]) / "diagnostic.json"
+        original = diagnostic.read_bytes()
+        proposals = [r["candidates"] for r in result["rows"]]
+        self.assertTrue(all(r["lookup_stage"] == "exact" and r["master_id_count"] == 1
+                            for r in result["rows"]))
+        self.assertTrue(all(r["decision"] == "unreviewed" for r in result["review"]["rows"]))
+        review = self.completed_review(result)
+        review["rows"][1].update(observed_name="다른", master_name="다른", app_sid=9,
+                                 factor_id=202, factor_group_id=2)
+        review["rows"][2] = result["review"]["rows"][2]
+        output = self.fixture.root / "output/record-kr.json"
+        evidence = self.fixture.root / "comparison"
+        request = {**self.request, "output": str(output), "evidence_output": str(evidence)}
+        with patch.object(kr.Resolver, "recommendation", side_effect=AssertionError("Do not recompute proposals")):
+            code, pending = self.save(result, review)
+            self.assertEqual(code, 2, pending)
+            code, reopened = self.call("load")
+            self.assertEqual(code, 2, reopened)
+            self.assertEqual(reopened["review"], review)
+            self.assertEqual([r["candidates"] for r in reopened["rows"]], proposals)
+            self.assertEqual(self.call("export", request)[0], 2)
+            self.assertFalse(output.exists())
+            self.assertFalse(evidence.exists())
+            review["rows"][2] = self.completed_review(result)["rows"][2]
+            self.assertEqual(self.save(reopened, review)[0], 0)
+            self.assertEqual(self.call("export", request)[0], 0)
+        self.assertEqual(diagnostic.read_bytes(), original)
+        rows = exporter.read_json(evidence / "comparison.json")["rows"]
+        comparisons = [r["recommendation_comparison"] for r in rows]
+        self.assertEqual([r["initial_candidate"]["factor_id"] for r in comparisons], [102, 102, 102])
+        self.assertEqual([r["identity_outcome"] for r in comparisons],
+                         ["same_identity", "changed_identity", "same_identity"])
+        self.assertTrue(all(r["ocr_spelling_changed"] for r in comparisons))
+        self.assertEqual([r["status"] for r in rows], ["corrected", "matched", "corrected"])
+
+    def test_stale_tool_binding_reports_preservation(self):
+        result = self.start()
+        draft = Path(result["review_path"])
+        stale = result["review"]
+        stale["bindings"]["tool_sha256"]["kr_factor_ocr.py"] = "0" * 64
+        draft.write_bytes(exporter.encoded(stale))
+        original = draft.read_bytes()
+        code, response = self.call("load")
+        self.assertEqual(code, 1, response)
+        self.assertIn("Stale review tool bindings", str(response))
+        self.assertEqual(draft.read_bytes(), original)
 
     def test_draft_hash_races_and_owned_lock_preserve_saved_review(self):
         result = self.start()
@@ -153,6 +205,13 @@ class AppAdapter(unittest.TestCase):
         self.assertTrue(ready["ready_to_export"])
         self.assertFalse(ready["completed"])
         self.assertEqual(self.call("validate-review")[0], 0)
+        output = self.fixture.root / "output/record-kr.json"
+        evidence = self.fixture.root / "comparison"
+        request = {**self.request, "output": str(output), "evidence_output": str(evidence)}
+        self.assertEqual(self.call("export", request)[0], 0)
+        rows = exporter.read_json(evidence / "comparison.json")["rows"]
+        self.assertTrue(all(r["recommendation_comparison"]["identity_outcome"] == "no_initial_candidate"
+                            for r in rows))
 
     def test_export_full_shape_failure_replacement_guard_and_protected_inputs(self):
         result = self.start()

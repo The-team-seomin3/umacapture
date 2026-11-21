@@ -136,11 +136,15 @@ always leaves `completed: false`, `verified_rows: 0` and each row unaccepted.
 Exit **2** means incomplete diagnostics were saved and read back; **1** means
 failure. Exit 2 is expected here, rather than an export success.
 
-NFC, whitespace removal and case folding apply to candidate lookup only.
-`○`/`ㅇ`/`O`, plus signs, parentheses and middle dots remain distinct. Similar
-names and high confidence never authorize a correction. Explicit master rows
-connect selected-star factor ID, factor group, actual star-1 representative and
-module SID. SID 0 is valid; missing or multiple SID edges stay unresolved.
+Initial lookup uses the recorded star and stops at the first stage with
+matches: whole name, prefix, or fuzzy. Whole-name and prefix keys use NFC,
+whitespace removal and case folding, ignore one terminal `○`, and treat
+`・` and `·` alike. They retain plus signs, parentheses and all other punctuation.
+The fuzzy fallback keeps the original scorer and punctuation. An empty key
+produces no initial suggestion. Raw OCR and master spelling remain unchanged.
+The diagnostic retains ordered recommendations and counts all distinct matching
+master IDs before checking SID selectability. SID 0 is valid. A unique
+selectable whole-name candidate still requires explicit review.
 
 ## 2. Prepare and complete a private review file
 
@@ -156,7 +160,10 @@ and that every saved crop equals its source pixels. The template binds source,
 diagnostic, model, master, module, tool and crop hashes plus ordered coordinates.
 New tool bytes, changed inputs or different diagnostic bytes require a new
 template/review. Git LF/CRLF checkout conversion also changes these byte bindings;
-prepare a fresh template after checkout rather than reusing an archived receipt. The bindings are immutable review context, not values to edit.
+prepare a fresh template after checkout and keep the original diagnostic and
+review. Resuming shows the original candidates even when the reviewer selected
+another identity. Version 1 diagnostics retain their saved candidates with
+stage `legacy`. Use a new run when a new recommendation is needed.
 
 Compare the actual name/star pixels and full capture with an independently
 checked reference and pinned master. Complete these fields in a **copy of the
@@ -230,7 +237,10 @@ All unresolved/error counts must be zero in a successful final export. The
 immutable receipt validates the candidate bytes named by its hash; receipt
 presence alone does not prove final-path publication after a failed replace.
 Match the actual derived-file hash. Original diagnostics remain incomplete;
-the separate receipt records their reviewed outcome.
+the separate receipt records their reviewed outcome. Its
+`recommendation_comparison` records the first diagnostic candidate and compares
+its identity to the final selection. Spelling changes are tracked separately.
+A row without an initial candidate can still be confirmed through manual lookup.
 
 Keep all these artifacts private: source metadata may contain trainer/instance
 identifiers, and crops contain game material. This workflow does not upload or

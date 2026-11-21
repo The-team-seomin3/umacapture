@@ -152,6 +152,42 @@ def master_state(path):
     return {str(p): kr.digest(p) for p in files}
 
 
+def original_recommendation(observed, factors, resolver, version):
+    candidates = observed.get("candidates")
+    if not isinstance(candidates, list):
+        raise ValueError("Diagnostic recommendation candidates must be a list")
+    stage = observed.get("lookup_stage") if version == 2 else "legacy"
+    if version == 2 and stage not in ("exact", "prefix", "fuzzy", "empty"):
+        raise ValueError("Invalid diagnostic lookup stage")
+    seen = set()
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            raise ValueError("Invalid diagnostic candidate")
+        fid = kr.integer(candidate["factor_id"])
+        actual = factors.get(fid)
+        if fid in seen or actual is None:
+            raise ValueError("Duplicate or unknown diagnostic factor ID")
+        seen.add(fid)
+        group = actual["factor_group_id"]
+        star = kr.integer(candidate["star"], 1)
+        if (star != observed["star"] or star != actual["stars"]
+                or kr.integer(candidate["factor_group_id"]) != group or candidate["name_ko"] != actual["name_ko"]
+                or canonical(candidate["app_sids"]) != canonical(resolver.sids.get(group, []))):
+            raise ValueError("Diagnostic recommendation differs from pinned factor identity")
+    status = observed.get("status")
+    if version == 2 and (
+        type(observed.get("master_id_count")) is not int
+        or observed["master_id_count"] != len(seen)
+        or (stage == "empty" and candidates) or (stage in ("exact", "prefix") and not candidates)
+        or any(c.get("match") != ("normalized_exact" if stage == "exact" else "suggestion") for c in candidates)
+        or status != kr.recommendation_status(stage, candidates)
+    ):
+        raise ValueError("Diagnostic recommendation metadata mismatch")
+    if status not in ("candidate_only", "unresolved"):
+        raise ValueError("Invalid diagnostic recommendation status")
+    return {"candidates": candidates, "lookup_stage": stage, "master_id_count": len(seen), "status": status}
+
+
 def load_context(args):
     import cv2
     import numpy as np
@@ -171,7 +207,8 @@ def load_context(args):
     paths["diagnostic"] = diagnostics / "diagnostic.json"
     hashes["diagnostic"] = kr.digest(paths["diagnostic"])
     diagnostic = read_json(paths["diagnostic"])
-    if type(diagnostic["diagnostic_version"]) is not int or diagnostic["diagnostic_version"] != 1:
+    version = diagnostic["diagnostic_version"]
+    if type(version) is not int or version not in (1, 2):
         raise ValueError("Unsupported diagnostic version")
     for key in hashes:
         if key != "diagnostic" and diagnostic["inputs_sha256"].get(key) != hashes[key]:
@@ -227,6 +264,9 @@ def load_context(args):
     if args.master_sha256.lower() not in diagnostic["master"]["files"].values():
         raise ValueError("Diagnostic master pin mismatch")
     resolver = kr.Resolver(factors, read_json(paths["factor_info.json"]))
+    factors_by_id = {factor["factor_id"]: factor for factor in factors}
+    for row, observed in zip(rows, diagnostic["rows"]):
+        row.update(original_recommendation(observed, factors_by_id, resolver, version))
     bindings = {
         "inputs_sha256": {key: hashes[key] for key in diagnostic["inputs_sha256"] if key in hashes},
         "diagnostic_sha256": hashes["diagnostic"], "model_sha256": kr.MODEL_SHA256,
@@ -238,7 +278,7 @@ def load_context(args):
     for name, path in (("kr_factor_ocr.py", Path(kr.__file__)), ("kr_factor_export.py", Path(__file__))):
         paths["tool:" + name] = path.resolve()
         hashes["tool:" + name] = bindings["tool_sha256"][name]
-    ctx = Context(record, rows, resolver, {f["factor_id"]: f for f in factors}, bindings,
+    ctx = Context(record, rows, resolver, factors_by_id, bindings,
                   paths, hashes, master_path, state, crop_paths,
                   [capture, diagnostics, master_path.parent, paths["factor_info.json"].parent,
                    paths["version_info.json"].parent])
@@ -258,12 +298,34 @@ def review_template(ctx):
             "coverage": {**{key: False for key in COVERAGE}, "evidence": ""}, "rows": rows}
 
 
+def compare_recommendation(row, decision):
+    initial = row["candidates"][0] if row["candidates"] else None
+    if initial is None:
+        status = "no_initial_candidate"
+    elif len(initial["app_sids"]) != 1:
+        status = "initial_candidate_unselectable"
+    else:
+        same_identity = (
+            initial["app_sids"] == [decision["app_sid"]]
+            and all(initial[key] == decision[key] for key in ("factor_id", "factor_group_id", "star"))
+        )
+        status = "same_identity" if same_identity else "changed_identity"
+    return {
+        "lookup_stage": row["lookup_stage"], "master_id_count": row["master_id_count"],
+        "initial_candidate": initial, "identity_outcome": status,
+        "ocr_spelling_changed": row["raw_text"] != decision["observed_name"],
+    }
+
+
 def verify_review(ctx, review):
     if not isinstance(review, dict) or not isinstance(review.get("coverage"), dict):
         raise ValueError("Review and coverage must be JSON objects")
     if type(review["review_version"]) is not int or review["review_version"] != 1:
         raise ValueError("Unsupported review version")
     if canonical(review["bindings"]) != canonical(ctx.bindings):
+        bindings = review["bindings"]
+        if isinstance(bindings, dict) and bindings.get("tool_sha256") != ctx.bindings["tool_sha256"]:
+            raise ValueError("Stale review tool bindings; preserve the draft and prepare a fresh review")
         raise ValueError("Stale or mixed-capture review bindings")
     reviewer = text(review["reviewer"])
     if any(review["coverage"].get(key) is not True for key in COVERAGE):
@@ -302,6 +364,7 @@ def verify_review(ctx, review):
                            "observed_name": observed_name, "master_name": master_name,
                            "factor_id": fid, "factor_group_id": group, "reviewer": reviewer,
                            "decision": decision["decision"], "evidence": evidence,
+                           "recommendation_comparison": compare_recommendation(row, decision),
                            "name_difference_reason": decision["name_difference_reason"]})
     return accepted, comparison
 
