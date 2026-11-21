@@ -166,6 +166,23 @@ class VerifiedExport(unittest.TestCase):
                 exporter.export(self.args)
             self.assertEqual(self.args.output.read_bytes(), prior)
 
+    def test_standalone_export_rejects_changed_or_missing_original_observations(self):
+        for key, changes in (("raw_ocr", ["changed"]), ("baseline_star", [1, 2.0]),
+                             ("baseline_sid", [999, 9.0])):
+            for change in [*changes, None]:
+                with self.subTest(field=key, change=change):
+                    bad = copy.deepcopy(self.review)
+                    row = bad["rows"][-1]
+                    if change is None:
+                        del row[key]
+                    else:
+                        row[key] = change
+                    self.save_review(bad)
+                    with self.assertRaisesRegex(ValueError, key):
+                        exporter.export(self.args)
+                    self.assertFalse(self.args.output.exists())
+                    self.assertFalse(self.args.evidence_output.exists())
+
     def test_semantic_id_star_and_alias_guards(self):
         for key, value in (("star", 0), ("star", 4), ("star", True), ("app_sid", -1), ("app_sid", 9),
                            ("factor_id", 101), ("factor_group_id", 2), ("master_name", "가ㅇ"),

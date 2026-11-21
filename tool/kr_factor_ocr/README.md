@@ -206,6 +206,10 @@ output outside protected input directories. Evidence requires a fresh directory
 outside inputs. Do not put review/export evidence inside capture/module/master
 or diagnostic inputs.
 
+Standalone export checks each review row against the bound diagnostic before writing
+the record or evidence. The original OCR text, source star and source SID must
+retain their values and JSON types. Corrections belong in the reviewed fields.
+
 The writer deep-copies the full source JSON tree, changes only reviewed factor
 `id`/`star` values and existing region, and checks exact types, keys, array
 lengths and allowed-path differences. It preserves `format_version`, copied
