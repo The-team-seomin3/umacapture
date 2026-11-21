@@ -13,9 +13,9 @@ staff chats, replace existing task owners, or authorize their product backlogs.
 | --- | --- | --- |
 | General Team | Coordinate approved priorities, integration, shared contracts, project guidance and documentation, CI, Windows builds/packages and release readiness. | Coordinate #11/#15 and separately approved #16 work. Domain teams maintain documentation and validation for their own changes. Coordination does not require General approval of every routine implementation choice. |
 | Recognition Team | Capture, scene scraping/stitching, recognition, the independent Korean-factor postprocessor, factor ID/star/group correctness and native record production. | Own producer behavior such as #24 and technical acceptance of capture evidence. Preserve Japanese paths, the accepted #5 offline boundary and separately managed deliveries such as PR #26. |
-| Capture Data Team (Windows, under Recognition) | Verify Windows source evidence within existing authorizations, including capture/version bindings, hashes and correspondence to original records or images. | Preserve authorized originals and prepare evidence for Recognition. Recognition owns the technical verdict. Collabo coordinates authorized transfers and intake. General coordinates Windows builds and release readiness. |
+| Capture Data Team (Windows, under Recognition) | Verify Windows source evidence within existing authorizations, including capture/version bindings, hashes and correspondence to original records or images. | Preserve authorized originals and prepare evidence for Recognition. Recognition owns the technical verdict. For artifacts produced on Windows, also designate and deliver them to the authorized private Drive destination and record their supplier-check and delivery states under the [delivery folder layout](#private-drive-delivery-layout), because the Linux Collabo context cannot reach Windows-held data. General coordinates Windows builds and release readiness. |
 | App Team | Flutter UI/localization, settings/presets, statistics/filters, local storage and consumer/export behavior. | Own display and aggregation work such as #10/#21/#22/#23. Coordinate record semantics with Recognition and final Windows packaging with General. |
-| Collabo Team | Coordinate Scout/Evaluator requests, bounded source availability checks, authorized private artifact designation/transfer, and source/version/hash/intake-state records. | Retain existing handoffs. Recognition/App or the receiving repository's responsible team validates technical meaning; successful transfer is not validation, acceptance or feature completion. |
+| Collabo Team | Coordinate Scout/Evaluator requests, bounded source availability checks, authorized private artifact designation/transfer, and source/version/hash/intake-state records for artifacts reachable from its context. | Retain existing handoffs. Capture Data Team records Windows-produced deliveries. Recognition/App or the receiving repository's responsible team validates technical meaning; successful transfer is not validation, acceptance or feature completion. |
 
 Issue references illustrate routing, not implementation authorization or current
 completion. Refresh the relevant issue, latest owner corrections, active PR and
@@ -63,7 +63,8 @@ records Capture Data Team's placement under Recognition.
    of the user-facing conversation language. Preserve exact team/chat names, IDs,
    paths, code, schema keys and KR/JP quotations/data; keep localized runtime
    strings and user-facing discussion/status in their existing language.
-4. **Separate transfer from validation.** Collabo records available/not available/
+4. **Separate transfer from validation.** The recording team (Collabo, or Capture
+   Data Team for Windows-produced deliveries) records available/not available/
    not checked, designated/delivered, acknowledged and intake-verified states as
    supported. The relevant technical team validates identity and compatibility;
    the receiving team owns its consumer implementation/acceptance. Preserve
@@ -91,6 +92,36 @@ records Capture Data Team's placement under Recognition.
    required.
 4. Recognition verifies the received evidence and records technical acceptance
    or any remaining work on the same issue.
+
+### Private Drive delivery layout
+
+The folder structure is the catalog. Recipients find a delivery by browsing, not
+by search or a separate index.
+
+1. **One folder per delivery revision.** Under the authorized repository folder,
+   use `<kind>/<YYYY-MM-DD>_<label>[_rN]/`. `<kind>` is one of `records`
+   (records-only), `evaluator` (inputs for a named Evaluator entry point),
+   `ocr-review`, `source` (preserved originals) or `handoff` (pilot/build
+   handoffs). The date is the KST capture date of the batch's first capture, not
+   the upload date. `<label>` separates same-day deliveries of one kind.
+2. **Readable state beside the archive.** Each folder holds its ZIP(s) plus the
+   delivery manifest and supplier receipt as uncompressed files, so a recipient
+   can read them in Drive without downloading an archive. The manifest states
+   region, recognizer version, contents, capture and row counts and each
+   archive's SHA-256. The receipt states the supplier check as Passed / Failed /
+   Not Tested with the reader revision it ran, and any partial or factor-only
+   limit. Unknown values are written as unknown.
+3. **Never replace in place.** A correction is a new `_rN` folder whose manifest
+   names the folder it supersedes. Do not upload a new version over an existing
+   Drive file: it keeps the file ID and hides the earlier revision.
+4. **Names locate; files decide.** Do not encode status in folder names or move
+   folders to change state. Contents and readiness come only from the manifest
+   and receipt; a folder without them is unknown. Recipient acknowledgement and
+   intake verification are recorded as aggregates on the delivery's GitHub
+   issue, so recipients need no Drive write access.
+5. **No index or automation.** Do not create an index spreadsheet, database,
+   Drive mirror or automatic sync. Archives delivered before this layout stay
+   where they are; moving or cataloguing them needs a separate owner decision.
 
 ## Validation and staffing
 

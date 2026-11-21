@@ -151,4 +151,6 @@ requires reading the entire issue. Read applicable repository instructions first
   only after checking the full repository identity, repository-folder mapping and
   access/write rights. Keep private paths, folder IDs and raw account data out of
   public text. Preserve original evidence and distinguish receipt from acceptance.
-  This procedure requires no Drive mirror, automatic upload or status registry.
+  Follow the [delivery folder layout](docs/agents/teams.md#private-drive-delivery-layout):
+  each delivery folder carries its own manifest and receipt, so no Drive mirror,
+  automatic upload, index spreadsheet or separate status registry is created.
