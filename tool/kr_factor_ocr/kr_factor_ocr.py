@@ -39,8 +39,12 @@ def integer(value, minimum=0):
 
 
 def normalize(text):
-    # Candidate lookup only; punctuation is deliberately retained.
+    # Keep the original fuzzy-scoring key, including its punctuation.
     return "".join(unicodedata.normalize("NFC", text).split()).casefold()
+
+
+def lookup_key(text):
+    return normalize(text).removesuffix("○").replace("・", "·")
 
 
 def rect_pixels(rect, width, height):
@@ -135,7 +139,9 @@ def load_master(path, expected_hash):
 
 class Resolver:
     def __init__(self, factors, app):
-        self.names = defaultdict(list)
+        self.names = defaultdict(lambda: defaultdict(list))
+        self.whole = defaultdict(list)
+        self.prefix = defaultdict(list)
         by_id = {}
         for f in factors:
             fid = integer(f["factor_id"])
@@ -145,7 +151,13 @@ class Resolver:
             if fid in by_id:
                 raise ValueError("Duplicate master factor ID")
             by_id[fid] = f
-            self.names[normalize(f["name_ko"])].append(f)
+            star = f["stars"]
+            name = f["name_ko"]
+            key = lookup_key(name)
+            self.names[star][normalize(name)].append(f)
+            if key:
+                self.whole[star, key].append(f)
+                self.prefix[star].append((key, f))
         self.sids = defaultdict(list)
         seen = set()
         for a in app:
@@ -157,24 +169,40 @@ class Resolver:
             if representative is not None and representative["stars"] == 1:
                 self.sids[representative["factor_group_id"]].append(sid)
 
+    def recommendation(self, text, star):
+        key = lookup_key(text)
+        stage, matches = "empty", []
+        if key:
+            matches = self.whole.get((star, key), [])
+            stage = "exact"
+            if not matches:
+                matches = [factor for term, factor in self.prefix.get(star, ()) if term.startswith(key)]
+                stage = "prefix"
+            if not matches:
+                names = self.names.get(star, {})
+                keys = difflib.get_close_matches(normalize(text), names, n=5, cutoff=0.55)
+                matches = [factor for term in keys for factor in names[term]]
+                stage = "fuzzy"
+
+        candidates = [{
+            "name_ko": factor["name_ko"], "factor_id": factor["factor_id"],
+            "factor_group_id": factor["factor_group_id"], "star": star,
+            "app_sids": self.sids.get(factor["factor_group_id"], []),
+            "match": "normalized_exact" if stage == "exact" else "suggestion",
+        } for factor in matches]
+        return {
+            "lookup_stage": stage, "master_id_count": len(candidates),
+            "candidates": candidates, "status": recommendation_status(stage, candidates),
+        }
+
     def candidates(self, text, star):
-        key = normalize(text)
-        exact = self.names.get(key, [])
-        keys = [key] if exact else difflib.get_close_matches(key, self.names, n=5, cutoff=0.55)
-        candidates = []
-        for k in keys:
-            for f in self.names[k]:
-                if f["stars"] != star:
-                    continue
-                sids = self.sids.get(f["factor_group_id"], [])
-                candidates.append({
-                    "name_ko": f["name_ko"], "factor_id": f["factor_id"],
-                    "factor_group_id": f["factor_group_id"], "star": star,
-                    "app_sids": sids, "match": "normalized_exact" if k == key else "suggestion",
-                })
-        unique = (len(candidates) == 1 and candidates[0]["match"] == "normalized_exact"
-                  and len(candidates[0]["app_sids"]) == 1)
-        return candidates, "candidate_only" if unique else "unresolved"
+        recommendation = self.recommendation(text, star)
+        return recommendation["candidates"], recommendation["status"]
+
+
+def recommendation_status(stage, candidates):
+    exact_unique = stage == "exact" and len(candidates) == 1 and len(candidates[0]["app_sids"]) == 1
+    return "candidate_only" if exact_unique else "unresolved"
 
 
 def recognize(crops, model):
@@ -243,8 +271,9 @@ def run(args):
     for row, (text, score) in zip(rows, observations):
         if not isinstance(text, str) or not math.isfinite(score) or not 0 <= score <= 1:
             raise ValueError("Invalid OCR observation")
-        candidates, status = resolver.candidates(text, row["star"])
-        row.update(raw_text=text, score=score, candidates=candidates, status=status, verified=False)
+        recommendation = resolver.recommendation(text, row["star"])
+        candidates, status = recommendation["candidates"], recommendation["status"]
+        row.update(raw_text=text, score=score, **recommendation, verified=False)
         row["jp_comparison"] = (
             "candidate_sid_matches" if status == "candidate_only"
             and candidates[0]["app_sids"][0] == row["baseline_sid"]
@@ -254,7 +283,7 @@ def run(args):
     if before != {n: digest(p) for n, p in paths.items()}:
         raise ValueError("Input changed during processing")
     report = {
-        "diagnostic_version": 1, "completed": False, "verified_rows": 0,
+        "diagnostic_version": 2, "completed": False, "verified_rows": 0,
         "limitations": [
             "All rows require independent pixel/group/star verification; candidates are not accepted IDs.",
             "Group boundaries and stars are reused from saved predictions, not independently inferred.",

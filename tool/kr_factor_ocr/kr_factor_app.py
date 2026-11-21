@@ -79,6 +79,10 @@ def review_issues(ctx, review):
         raise ValueError("Review fields differ from the prepared template")
     for key in ("review_version", "bindings"):
         if exporter.canonical(review[key]) != exporter.canonical(template[key]):
+            if key == "bindings" and isinstance(review[key], dict) and (
+                review[key].get("tool_sha256") != template[key]["tool_sha256"]
+            ):
+                raise ValueError("Stale review tool bindings; preserve the draft and prepare a fresh review")
             raise ValueError("Review bindings are immutable; reload this capture")
     if not isinstance(review["reviewer"], str):
         raise ValueError("Reviewer must be text")
@@ -146,8 +150,7 @@ def session(ctx, args, work, review=None):
     issues = review_issues(ctx, review)
     rows = []
     for row in ctx.rows:
-        candidates, status = ctx.resolver.candidates(row["raw_text"], row["star"])
-        rows.append({**row, "candidates": candidates, "status": status, "verified": False,
+        rows.append({**row, "verified": False,
                      "name_crop": str(args.diagnostics / f"crops/{row['group']}-{row['index']:03d}-name.png"),
                      "star_crop": str(args.diagnostics / f"crops/{row['group']}-{row['index']:03d}-star.png")})
     ctx.unchanged()
@@ -203,10 +206,13 @@ def lookup(request):
     offset, limit = request.get("offset", 0), request.get("limit", 50)
     if type(offset) is not int or offset < 0 or type(limit) is not int or not 1 <= limit <= 200:
         raise ValueError("Invalid lookup offset/limit")
-    query = kr.normalize(query)
+    browse = not kr.normalize(query)
+    query = kr.lookup_key(query)
     matches = []
     for f in factors:
-        if query not in kr.normalize(f["name_ko"]) or star is not None and f["stars"] != star:
+        if star is not None and f["stars"] != star:
+            continue
+        if not browse and (not query or query not in kr.lookup_key(f["name_ko"])):
             continue
         sids = resolver.sids.get(f["factor_group_id"], [])
         matches.append({"name_ko": f["name_ko"], "factor_id": f["factor_id"],
