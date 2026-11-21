@@ -23,6 +23,9 @@ PORTABLE = {
     "tool/kr_factor_ocr/test_kr_factor_ocr.py", "tool/kr_factor_ocr/test_kr_factor_export.py",
     "tool/kr_factor_ocr/APP_PROTOCOL.md", "tool/kr_factor_ocr/README.md",
     "test/fixtures/chara_detail_record.json", "tool/ci/pr_scope.py", "tool/ci/test_pr_scope.py",
+    "tool/kr_representative_identity/prepare_role_evidence.py",
+    "tool/kr_representative_identity/test_prepare_role_evidence.py",
+    "tool/kr_representative_identity/README.md",
 }
 GUIDANCE = {
     "AGENTS.md": {"Issue context and decision continuity"},

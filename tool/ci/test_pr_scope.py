@@ -169,6 +169,19 @@ class ScopeTests(unittest.TestCase):
             with self.subTest(previous=previous, changed=changed):
                 self.assertEqual(pr_scope.classify_paths(["AGENTS.md"], documents={"AGENTS.md": (previous, changed)}), "windows")
 
+    def test_representative_identity_admits_only_the_listed_paths(self):
+        paths = {
+            "tool/kr_representative_identity/prepare_role_evidence.py",
+            "tool/kr_representative_identity/test_prepare_role_evidence.py",
+            "tool/kr_representative_identity/README.md",
+        }
+        self.assertEqual(pr_scope.classify_paths(paths), "portable")
+        self.assertEqual(pr_scope.classify_paths(paths | {"README.md"}), "windows")
+        self.assertEqual(
+            pr_scope.classify_paths(paths | {"tool/kr_representative_identity/unreviewed.py"}),
+            "windows",
+        )
+
     def test_portable_allowlist_and_empty_are_conservative(self):
         for path in pr_scope.PORTABLE:
             with self.subTest(path=path):
