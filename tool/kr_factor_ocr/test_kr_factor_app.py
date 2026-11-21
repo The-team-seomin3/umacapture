@@ -54,6 +54,7 @@ class AppAdapter(unittest.TestCase):
     def completed_review(self, result):
         review = copy.deepcopy(result["review"])
         review["reviewer"] = "Synthetic independently checked pixel reviewer"
+        review["owner_handoff"]["agent_review_complete"] = True
         review["coverage"] = {**{k: True for k in exporter.COVERAGE}, "evidence": "Synthetic coverage checked"}
         for row in review["rows"]:
             row.update(decision="confirmed", observed_name="가○", master_name="가○", star=2,
@@ -79,6 +80,55 @@ class AppAdapter(unittest.TestCase):
         self.assertEqual(self.call("validate-review")[0], 2)
         self.assertEqual({p: kr.digest(p) for p in self.fixture.source.iterdir()}, self.before)
         self.assertEqual(self.call("run")[0], 1)
+
+    def test_owner_answer_round_trip_and_locked_request_history(self):
+        initial = self.start()
+        review = self.completed_review(initial)
+        review["rows"][0] = initial["review"]["rows"][0]
+        request = self.fixture.owner_request(review)
+        review["owner_handoff"]["requests"].append(request)
+        code, saved = self.save(initial, review)
+        self.assertEqual(code, 2, saved)
+        self.assertEqual(self.call("load")[1]["review"], review)
+        self.assertEqual(self.call("export")[0], 2)
+        for change in ("delete", "question", "reason"):
+            bad = copy.deepcopy(review)
+            requests = bad["owner_handoff"]["requests"]
+            if change == "delete":
+                requests.clear()
+            else:
+                requests[0][change] = "Changed"
+            self.assertEqual(self.save(saved, bad)[0], 1)
+        request["answer"] = "One circle"
+        self.assertEqual(self.save(initial, review)[0], 1)
+        code, answered = self.save(saved, review)
+        self.assertEqual(code, 2, answered)
+        self.assertFalse(answered["ready_to_export"])
+        self.assertEqual(self.call("load")[1]["review"], review)
+        self.assertEqual(self.call("export")[0], 2)
+        rewrite = copy.deepcopy(review)
+        rewrite["owner_handoff"]["requests"][0]["answer"] = "Other"
+        self.assertEqual(self.save(answered, rewrite)[0], 1)
+        review["rows"][0] = self.completed_review(initial)["rows"][0]
+        self.assertEqual(self.save(answered, review)[0], 0)
+
+    def test_legacy_handoff_and_malformed_saved_state(self):
+        initial = self.start()
+        review = self.completed_review(initial)
+        del review["owner_handoff"]
+        path = Path(initial["review_path"])
+        path.write_bytes(exporter.encoded(review))
+        self.assertEqual(self.call("load")[0], 2)
+        self.assertEqual(self.call("export")[0], 2)
+        review["owner_handoff"] = None
+        path.write_bytes(exporter.encoded(review))
+        before = path.read_bytes()
+        for command in ("load", "validate-review", "export"):
+            self.assertEqual(self.call(command)[0], 1)
+        request = {**self.request, "review": self.completed_review(initial),
+                   "expected_review_sha256": kr.digest(path)}
+        self.assertEqual(self.call("save-review", request)[0], 1)
+        self.assertEqual(path.read_bytes(), before)
 
     def test_lookup_sid_zero_star_paging_and_read_only_pins(self):
         before = kr.digest(self.fixture.master)

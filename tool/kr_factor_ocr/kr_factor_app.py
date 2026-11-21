@@ -75,7 +75,7 @@ def common_args(request):
 def review_issues(ctx, review):
     """Reject corrupt drafts; return missing confirmations without inventing any."""
     template = exporter.review_template(ctx)
-    if type(review) is not dict or set(review) != set(template):
+    if type(review) is not dict or (set(review) | {"owner_handoff"}) != set(template):
         raise ValueError("Review fields differ from the prepared template")
     for key in ("review_version", "bindings"):
         if exporter.canonical(review[key]) != exporter.canonical(template[key]):
@@ -96,7 +96,7 @@ def review_issues(ctx, review):
     rows = review["rows"]
     if type(rows) is not list or len(rows) != len(template["rows"]):
         raise ValueError("Review has missing or extra rows")
-    issues = []
+    issues = exporter.owner_handoff_issues(ctx, review)
     if not review["reviewer"].strip():
         issues.append("Provide reviewer attribution")
     for key in exporter.COVERAGE:
@@ -163,6 +163,19 @@ def session(ctx, args, work, review=None):
             "limitations": LIMITATIONS}
 
 
+def preserve_owner_requests(previous, updated):
+    def requests(review):
+        return review.get("owner_handoff", {}).get("requests", [])
+
+    current = {(r["group"], r["index"]): r for r in requests(updated)}
+    for old in requests(previous):
+        new = current.get((old["group"], old["index"]))
+        if new is None or any(new[k] != old[k] for k in ("question", "reason")):
+            raise ValueError("Preserve saved owner questions and reasons")
+        if old["answer"] is not None and new["answer"] != old["answer"]:
+            raise ValueError("Preserve the saved owner answer")
+
+
 def save_review(ctx, args, work, request):
     review = request.get("review")
     review_issues(ctx, review)
@@ -171,6 +184,9 @@ def save_review(ctx, args, work, request):
     with exporter.output_lock(args.review):
         if kr.digest(args.review) != expected:
             raise ValueError("Review draft changed; reload before saving")
+        previous = exporter.read_json(args.review)
+        review_issues(ctx, previous)
+        preserve_owner_requests(previous, review)
         try:
             fd, name = tempfile.mkstemp(prefix=".review-stage-", suffix=".json", dir=work)
             staged = Path(name)

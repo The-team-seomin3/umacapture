@@ -172,6 +172,7 @@ agreement alone:
 
 | Review field | Required observation |
 | --- | --- |
+| `owner_handoff` | Record explicit source-bound questions and owner answers. Set `agent_review_complete` explicitly when agent review is complete. Export requires every question answered and the usual row and coverage checks. See the [save-review contract](APP_PROTOCOL.md#save-review). |
 | `reviewer` | Nonempty attribution for the independent pixel observations or explicit confirmation. |
 | `coverage` | Set `complete_capture`, `group_boundaries`, and `no_missing_or_duplicate_rows` to true only after reviewing acquisition beginning/end, group transitions and row coverage. Explain the evidence. |
 | Each row's `decision` | `verified` for independently checked evidence, or `confirmed` for an explicit confirmation; `unreviewed` blocks export. |

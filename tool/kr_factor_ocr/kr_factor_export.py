@@ -291,6 +291,41 @@ def original_observations(source):
             "baseline_star": source["star"]}
 
 
+def new_owner_handoff():
+    return {"version": 1, "agent_review_complete": False, "requests": []}
+
+
+def owner_handoff_issues(ctx, review):
+    """Validate saved requests against the capture and return outstanding export gates."""
+    handoff = review.get("owner_handoff", new_owner_handoff())
+    if (type(handoff) is not dict or set(handoff) != {"version", "agent_review_complete", "requests"}
+            or type(handoff["version"]) is not int or handoff["version"] != 1
+            or type(handoff["agent_review_complete"]) is not bool or type(handoff["requests"]) is not list):
+        raise ValueError("Invalid owner handoff")
+    issues = [] if handoff["agent_review_complete"] else ["Agent review completion is required"]
+    bindings = {(row["group"], row["index"]): row for row in ctx.bindings["rows"]}
+    seen = set()
+    fields = {"group", "index", "name_crop_sha256", "star_crop_sha256", "question", "reason", "answer"}
+    for request in handoff["requests"]:
+        if (type(request) is not dict or set(request) != fields or type(request["group"]) is not str
+                or type(request["index"]) is not int):
+            raise ValueError("Invalid owner request fields")
+        key = request["group"], request["index"]
+        binding = bindings.get(key)
+        if binding is None or key in seen:
+            raise ValueError("Unknown or duplicate owner request row")
+        seen.add(key)
+        if any(request[k] != binding[k] for k in ("name_crop_sha256", "star_crop_sha256")):
+            raise ValueError("Owner request crop binding mismatch")
+        text(request["question"])
+        text(request["reason"])
+        if request["answer"] is None:
+            issues.append(f"Owner answer required for {key[0]}/{key[1]}")
+        else:
+            text(request["answer"])
+    return issues
+
+
 def review_template(ctx):
     rows = []
     for source, binding in zip(ctx.rows, ctx.bindings["rows"]):
@@ -299,6 +334,7 @@ def review_template(ctx):
                      "name_difference_reason": "", "evidence": "",
                      **original_observations(source)})
     return {"review_version": 1, "bindings": ctx.bindings, "reviewer": "",
+            "owner_handoff": new_owner_handoff(),
             "coverage": {**{key: False for key in COVERAGE}, "evidence": ""}, "rows": rows}
 
 
@@ -331,6 +367,9 @@ def verify_review(ctx, review):
         if isinstance(bindings, dict) and bindings.get("tool_sha256") != ctx.bindings["tool_sha256"]:
             raise ValueError("Stale review tool bindings; preserve the draft and prepare a fresh review")
         raise ValueError("Stale or mixed-capture review bindings")
+    outstanding = owner_handoff_issues(ctx, review)
+    if outstanding:
+        raise ValueError(outstanding[0])
     reviewer = text(review["reviewer"])
     if any(review["coverage"].get(key) is not True for key in COVERAGE):
         raise ValueError("Capture completeness and group coverage require explicit review")
