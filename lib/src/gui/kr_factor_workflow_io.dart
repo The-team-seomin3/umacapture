@@ -502,7 +502,11 @@ class _KrFactorRowReviewDialogState extends State<KrFactorRowReviewDialog> {
   final _query = TextEditingController();
   late int _star = widget.decision['star'] as int? ?? widget.row['star'] as int;
   late Map<String, dynamic> _selected = Map.of(widget.decision);
-  late bool _confirmed = {'confirmed', 'verified'}.contains(widget.decision['decision']);
+  late String _decision = switch (widget.decision['decision']) {
+    'verified' => 'verified',
+    'confirmed' => 'confirmed',
+    _ => 'unreviewed',
+  };
   List<Map<String, dynamic>> _matches = [];
   int _offset = 0;
   int _total = 0;
@@ -558,7 +562,7 @@ class _KrFactorRowReviewDialogState extends State<KrFactorRowReviewDialog> {
         'star': match['star'],
       };
       _star = match['star'] as int;
-      _confirmed = false;
+      _decision = 'unreviewed';
     });
   }
 
@@ -598,7 +602,7 @@ class _KrFactorRowReviewDialogState extends State<KrFactorRowReviewDialog> {
               key: const ValueKey('kr_observed_name'),
               controller: _observed,
               decoration: const InputDecoration(labelText: '직접 관찰한 표시 이름'),
-              onChanged: (_) => setState(() => _confirmed = false),
+              onChanged: (_) => setState(() => _decision = 'unreviewed'),
             ),
             DropdownButtonFormField<int>(
               key: ValueKey('kr_star_$_star'),
@@ -611,7 +615,7 @@ class _KrFactorRowReviewDialogState extends State<KrFactorRowReviewDialog> {
                   ? null
                   : (v) => setState(() {
                       _star = v!;
-                      _confirmed = false;
+                      _decision = 'unreviewed';
                       _matches = [];
                     }),
             ),
@@ -647,25 +651,25 @@ class _KrFactorRowReviewDialogState extends State<KrFactorRowReviewDialog> {
             TextField(
               controller: _difference,
               decoration: const InputDecoration(labelText: '관찰 이름과 master 이름이 다른 이유 (다르면 필수)'),
-              onChanged: (_) => setState(() => _confirmed = false),
+              onChanged: (_) => setState(() => _decision = 'unreviewed'),
             ),
             TextField(
               key: const ValueKey('kr_row_evidence'),
               controller: _evidence,
               maxLines: 2,
               decoration: const InputDecoration(labelText: '이 행의 독립 관찰 또는 명시적 확인 근거'),
-              onChanged: (_) => setState(() => _confirmed = false),
+              onChanged: (_) => setState(() => _decision = 'unreviewed'),
             ),
             CheckboxListTile(
               key: const ValueKey('kr_confirm_row'),
               title: const Text('이 행의 이름·별·master 연결을 직접 확인했습니다.'),
-              value: _confirmed,
+              value: _decision != 'unreviewed',
               onChanged:
                   _hasSelection &&
                       _observed.text.trim().isNotEmpty &&
                       _evidence.text.trim().isNotEmpty &&
                       (_observed.text == _selected['master_name'] || _difference.text.trim().isNotEmpty)
-                  ? (v) => setState(() => _confirmed = v == true)
+                  ? (v) => setState(() => _decision = v == true ? 'confirmed' : 'unreviewed')
                   : null,
             ),
           ],
@@ -680,7 +684,7 @@ class _KrFactorRowReviewDialogState extends State<KrFactorRowReviewDialog> {
             : () => Navigator.pop(context, <String, dynamic>{
                 for (final key in ['master_name', 'app_sid', 'factor_id', 'factor_group_id', 'star'])
                   key: _selected[key],
-                'decision': _confirmed ? 'confirmed' : 'unreviewed',
+                'decision': _decision,
                 'observed_name': _observed.text,
                 'evidence': _evidence.text,
                 'name_difference_reason': _difference.text,

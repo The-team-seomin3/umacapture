@@ -51,6 +51,77 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('unchanged verified rows retain their decision until edited and reconfirmed', (tester) async {
+    tester.view.physicalSize = const Size(1200, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final verified = <String, dynamic>{
+      'decision': 'verified',
+      'observed_name': '스피드',
+      'master_name': '스피드',
+      'star': 1,
+      'app_sid': 0,
+      'factor_id': 101,
+      'factor_group_id': 12,
+      'name_difference_reason': '',
+      'evidence': 'Independent pixel observation',
+    };
+    var draft = Map.of(verified);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () async {
+                final result = await showDialog<Map<String, dynamic>>(
+                  context: context,
+                  builder: (_) => KrFactorRowReviewDialog(
+                    row: {
+                      'group': 'self',
+                      'index': 0,
+                      'star': 1,
+                      'name_crop': pixels,
+                      'star_crop': pixels,
+                      'candidates': [],
+                    },
+                    decision: draft,
+                    lookup: (_, _, _) async => throw StateError('unexpected lookup'),
+                  ),
+                );
+                if (result != null) draft = result;
+              },
+              child: const Text('review row'),
+            ),
+          ),
+        ),
+      ),
+    );
+    Future<void> tap(Finder target) async {
+      await tester.ensureVisible(target);
+      await tester.tap(target);
+      await tester.pumpAndSettle();
+    }
+
+    final open = find.text('review row');
+    final apply = find.text('행 검토 적용');
+    final confirm = find.byKey(const ValueKey('kr_confirm_row'));
+    await tap(open);
+    await tap(apply);
+    expect(draft, verified);
+    await tap(open);
+    expect(tester.widget<CheckboxListTile>(confirm).value, isTrue);
+    await tester.enterText(find.byKey(const ValueKey('kr_row_evidence')), 'Rechecked pixels');
+    await tester.pump();
+    expect(tester.widget<CheckboxListTile>(confirm).value, isFalse);
+    await tap(apply);
+    expect(draft, {...verified, 'decision': 'unreviewed', 'evidence': 'Rechecked pixels'});
+    await tap(open);
+    await tap(confirm);
+    await tap(apply);
+    expect(draft, {...verified, 'decision': 'confirmed', 'evidence': 'Rechecked pixels'});
+  });
+
   testWidgets('manual master lookup supports SID zero and requires individual pixel confirmation', (tester) async {
     tester.view.physicalSize = const Size(1200, 1000);
     tester.view.devicePixelRatio = 1;
