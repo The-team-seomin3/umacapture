@@ -67,6 +67,8 @@ jobs:
           --with rapidocr==3.10.0 --with onnxruntime==1.31.1
           --with opencv-python-headless==4.13.0.92 --with numpy==2.5.4
           python -B -m unittest discover -s tool/kr_factor_ocr -v
+      - name: Test offline KR representative identity
+        run: python3 -B -m unittest discover -s tool/kr_representative_identity -v
 
   native-tests:
     name: Native C++ tests (doctest)

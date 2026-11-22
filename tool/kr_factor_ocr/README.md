@@ -1,5 +1,8 @@
 # Korean factor OCR and reviewed full-record export
 
+For representative character and outfit evidence for Evaluator, see the
+[offline representative identity tool](../kr_representative_identity/README.md).
+
 This optional Windows offline workflow processes a completed original three-tab
 capture. It keeps the original Japanese capture/recognizer/exporter and
 `record.json`, then writes a separate full `record-kr.json` **only after every
