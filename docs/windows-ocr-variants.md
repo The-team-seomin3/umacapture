@@ -43,6 +43,17 @@ JP keeps `umacapture.exe` and window `umacapture`. KR uses `umacapture_kr.exe` a
 window `umacapture (Korean Factor OCR)`. Native identity follows the same Dart
 define as the UI, not a separate environment switch.
 
+## Deliver the Windows KR app to the owner
+
+For each owner-facing Windows build, keep the verified build output and copy
+the contents of its `kr/` package directly into `.release/` at the root of the
+owner's primary checkout. The stable launch path is `.release/umacapture_kr.exe`,
+including when the build was produced in a separate worktree.
+
+Deliver the executable, DLLs, data, bundled tools and build manifest together.
+Verify the delivered relative file list and SHA-256 hashes against the source
+package before handing the owner the launch path. Keep generated binaries local.
+
 ## Sequential application use and data safety
 
 Close one variant before opening the other. The existing shared Windows startup

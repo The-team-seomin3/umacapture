@@ -96,6 +96,7 @@ capture/record contracts, not a requirement to reopen the PoCs or change native 
 | Current delivery, acceptance remainder and separate UI/package/isolation work | [Implementation status](docs/implementation-status.md) |
 | Scope, factor/JSON boundaries, preserving shared paths | [Contracts](docs/agents/contracts.md#scope-and-contracts) |
 | Consume/publish PoC research or prepare worktree cleanup | [Research handoffs](docs/agents/contracts.md#research-handoffs); derive the [local issue index and cleanup handoff](docs/agents/contracts.md#local-storage-and-worktree-handoff) before searching raw evidence |
+| Deliver a Windows KR build for the owner | [Stable local app path and package verification](docs/windows-ocr-variants.md#deliver-the-windows-kr-app-to-the-owner) |
 | Build and run screenshot/video/recognition tooling | [Setup and CLI](docs/agents/operations.md#setup-and-build) |
 | Validate the changed behavior and report actual coverage | [Targeted verification](docs/agents/testing.md#native-verification) |
 | Understand pipeline, coordinates and generated layout | [Existing native overview](docs/native-recognition-backend.md) |
