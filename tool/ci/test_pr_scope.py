@@ -77,7 +77,9 @@ class GuidanceTests(unittest.TestCase):
         self.assertEqual(pr_scope.classify_paths([path, pr_scope.WORKFLOW], workflows, documents), "windows")
 
     def test_unknown_or_consumed_markdown_is_never_docs(self):
-        for path in ("README.md", "assets/news.md", "native/test/README.md", "docs/new.md", "LICENSE.md"):
+        for path in ("README.md", "assets/news.md", "native/test/README.md", "docs/agents/new.md",
+                     "docs/validation/new.md", "docs/fork-network-policy.md", "docs/korean-ui-localization.md",
+                     "docs/nested/AGENTS.md", "docs/.private/new.md", "LICENSE.md"):
             with self.subTest(path=path):
                 self.assertEqual(pr_scope.classify_paths([path]), "windows")
         for path in ("tool/kr_factor_ocr/README.md", "tool/kr_factor_ocr/APP_PROTOCOL.md"):
@@ -319,6 +321,10 @@ class GitScopeTests(unittest.TestCase):
               patch.object(pr_scope, "git", lambda *args: subprocess.check_output(["git", *args], cwd=self.root))):
             self.assertEqual(classify(base, head), "flutter")
             self.assertEqual(classify(base, head, push=True), "flutter")
+            self.write("docs/ordinary-guide.md", "# Ordinary guide\n\nDocumentation companion.\n")
+            with_manual = self.commit()
+            self.assertEqual(classify(base, with_manual), "flutter")
+            self.assertEqual(classify(base, with_manual, push=True), "flutter")
             self.write("tool/kr_factor_ocr/README.md", "portable companion\n")
             self.assertEqual(classify(base, self.commit()), "flutter")
             self.write("pubspec.lock", "dependency change\n")
@@ -479,6 +485,190 @@ class GitScopeTests(unittest.TestCase):
         self.assertEqual(json.loads(result.stdout)["lane"], "windows")
         result, _ = self.classify("f" * 40)
         self.assertNotEqual(result.returncode, 0)
+
+
+    def docs_command(self, command, base, head, *, push=False):
+        args = [sys.executable, "-B", str(Path(pr_scope.__file__).resolve()), command,
+                "--base", base, "--head", head]
+        return subprocess.run([*args, *(["--push"] if push else [])], cwd=self.root,
+                              capture_output=True, text=True)
+
+    def assert_docs_range(self, base, head):
+        for push in (False, True):
+            with self.subTest(push=push):
+                result = self.docs_command("classify", base, head, push=push)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(json.loads(result.stdout)["lane"], "docs")
+                checked = self.docs_command("check-docs", base, head, push=push)
+                self.assertEqual(checked.returncode, 0, checked.stderr)
+                self.assertNotIn("not applicable", checked.stdout)
+
+    def navigation_text(self, target="docs/windows-ocr-variants.md"):
+        return ("# Agent guidance\n\n## Working rules\nKeep product checks.\n\n"
+                "## Find the needed document\n\n| Need | Read next |\n| --- | --- |\n"
+                f"| Windows local delivery | [Variants]({target}) |\n\n"
+                "## Issue context and decision continuity\nRefresh actual evidence.\n")
+
+    def test_new_and_existing_ordinary_manuals_need_no_per_file_admission(self):
+        self.write("docs/user-guide.md", "# User guide\n\n## Setup\nOriginal instructions.\n")
+        base = self.commit()
+        self.write("docs/user-guide.md", "# User guide\n\n## Setup\nUpdated instructions.\n")
+        self.write("docs/new-folder/new-manual.md", "# New manual\n\n[Setup](../user-guide.md#setup)\n")
+        head = self.commit()
+        self.assert_docs_range(base, head)
+        self.git("checkout", "-qb", "manual-merge-target", base)
+        self.git("merge", "--no-ff", "--no-edit", head)
+        self.assert_docs_range(base, self.git("rev-parse", "HEAD"))
+
+    def test_issue70_navigation_and_manual_shape_uses_docs_in_pr_and_push(self):
+        self.write("AGENTS.md", self.navigation_text())
+        self.write("docs/windows-ocr-variants.md", "# Windows variants\n\n## Local builds\nBuild instructions.\n")
+        base = self.commit()
+        self.write("AGENTS.md", self.navigation_text("docs/windows-ocr-variants.md#local-delivery"))
+        self.write("docs/windows-ocr-variants.md", "# Windows variants\n\n## Local builds\nBuild instructions.\n\n"
+                   "## Local delivery\nCopy the complete package after verification.\n")
+        head = self.commit()
+        self.assert_docs_range(base, head)
+        for value in (self.navigation_text().replace("Keep product checks.", "Skip product checks."),
+                      self.navigation_text().replace("\n## Issue context", "\nAdditional permission outside the table.\n\n## Issue context"),
+                      self.navigation_text("docs/wasm-toolchain/build.sh"),
+                      self.navigation_text("docs/windows-ocr-variants.md?disable_checks=true")):
+            self.write("AGENTS.md", value)
+            changed = self.commit()
+            result = self.docs_command("classify", base, changed)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(result.stdout)["lane"], "windows")
+
+    def test_agents_only_navigation_checks_fragment_in_unchanged_manual(self):
+        self.write("AGENTS.md", self.navigation_text())
+        self.write("docs/windows-ocr-variants.md", "# Variants\n\n## Local delivery\nInstructions.\n")
+        base = self.commit()
+        self.write("AGENTS.md", self.navigation_text("docs/windows-ocr-variants.md#missing-section"))
+        broken = self.commit()
+        for push in (False, True):
+            classified = self.docs_command("classify", base, broken, push=push)
+            self.assertEqual(json.loads(classified.stdout)["lane"], "docs")
+            checked = self.docs_command("check-docs", base, broken, push=push)
+            self.assertNotEqual(checked.returncode, 0)
+        self.write("AGENTS.md", self.navigation_text("docs/windows-ocr-variants.md#local-delivery"))
+        self.assert_docs_range(base, self.commit())
+
+    def test_ordinary_manual_mixtures_retain_restricted_and_portable_routes(self):
+        self.write("docs/user-guide.md", "# Guide\n\nOriginal prose.\n")
+        base = self.commit()
+        restricted = ("lib/main.dart", "native/src/producer.cpp", "pubspec.yaml", "README.md",
+                      "docs/agents/new-policy.md", "docs/validation/evidence.md", "docs/evidence.json",
+                      "docs/fork-network-policy.md", "docs/korean-ui-localization.md",
+                      "docs/wasm-toolchain/build.sh", "docs/nested/AGENTS.md", "docs/.private/note.md")
+        for path in restricted:
+            with self.subTest(path=path):
+                self.git("checkout", "--detach", base)
+                self.write("docs/user-guide.md", "# Guide\n\nChanged prose.\n")
+                self.write(path, "Restricted content.\n")
+                head = self.commit()
+                for push in (False, True):
+                    result = self.docs_command("classify", base, head, push=push)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(json.loads(result.stdout)["lane"], "windows")
+        self.git("checkout", "--detach", base)
+        self.write("docs/user-guide.md", "# Guide\n\nChanged prose.\n")
+        self.write("tool/kr_factor_ocr/README.md", "Portable companion.\n")
+        head = self.commit()
+        for push in (False, True):
+            result = self.docs_command("classify", base, head, push=push)
+            self.assertEqual(json.loads(result.stdout)["lane"], "portable")
+
+    def test_ordinary_manual_modes_symlinks_invalid_utf8_and_hidden_paths_are_not_docs(self):
+        self.write("docs/user-guide.md", "# Guide\n\nPlain prose.\n")
+        base = self.commit()
+        for mode in ("executable", "symlink", "invalid-utf8"):
+            with self.subTest(mode=mode):
+                self.git("checkout", "--detach", base)
+                path = self.root / "docs/user-guide.md"
+                if mode == "executable":
+                    path.chmod(0o755)
+                elif mode == "symlink":
+                    path.unlink()
+                    path.symlink_to("../outside.txt")
+                else:
+                    path.write_bytes(b"# Guide\n\xff\n")
+                head = self.commit()
+                for push in (False, True):
+                    result = self.docs_command("classify", base, head, push=push)
+                    self.assertTrue(result.returncode != 0 or json.loads(result.stdout)["lane"] == "windows")
+
+    def test_submodule_shaped_document_never_enters_docs_lane(self):
+        self.git("update-index", "--add", "--cacheinfo", f"160000,{self.base},docs/module.md")
+        self.git("commit", "-qm", "Gitlink documentation fixture")
+        head = self.git("rev-parse", "HEAD")
+        for push in (False, True):
+            result = self.docs_command("classify", self.base, head, push=push)
+            self.assertTrue(result.returncode != 0 or json.loads(result.stdout)["lane"] == "windows")
+
+    def test_manual_links_and_fragments_are_checked_at_the_actual_head(self):
+        self.write("docs/target guide.md", "# Target\n\n## Local delivery\nKeep original.\n"
+                   "\n## Repeated\nFirst.\n\n## Repeated\nSecond.\n")
+        base = self.commit()
+        self.write("docs/user-guide.md", "# User guide\n\n[Local](target%20guide.md#local-delivery)\n"
+                   "[Duplicate heading][second]\n\n[second]: target%20guide.md#repeated-1\n\n"
+                   "[Self](#user-guide) [Remote](https://example.invalid/unavailable#missing)\n")
+        good = self.commit()
+        self.assert_docs_range(base, good)
+        for target in ("missing.md", "target%20guide.md#missing", "#missing", "../../outside.md"):
+            with self.subTest(target=target):
+                self.git("checkout", "--detach", good)
+                self.write("docs/user-guide.md", f"# User guide\n\n[Broken]({target})\n")
+                head = self.commit()
+                for push in (False, True):
+                    result = self.docs_command("check-docs", base, head, push=push)
+                    self.assertNotEqual(result.returncode, 0)
+
+    def test_deletion_rename_and_heading_edits_check_affected_inbound_links(self):
+        self.write("docs/target.md", "# Target\n\n## Existing section\nOriginal prose.\n")
+        self.write("docs/source.md", "# Source\n\n[Target](target.md#existing-section)\n"
+                   "[Pre-existing unrelated issue](unrelated-missing.md)\n")
+        base = self.commit()
+        for operation in ("delete", "rename", "remove-heading"):
+            with self.subTest(operation=operation):
+                self.git("checkout", "--detach", base)
+                if operation == "delete":
+                    (self.root / "docs/target.md").unlink()
+                elif operation == "rename":
+                    self.git("mv", "docs/target.md", "docs/renamed.md")
+                else:
+                    self.write("docs/target.md", "# Target\n\n## New section\nUpdated prose.\n")
+                head = self.commit()
+                for push in (False, True):
+                    classified = self.docs_command("classify", base, head, push=push)
+                    self.assertEqual(json.loads(classified.stdout)["lane"], "docs")
+                    checked = self.docs_command("check-docs", base, head, push=push)
+                    self.assertNotEqual(checked.returncode, 0)
+                self.write("docs/source.md", "# Source\n\n" +
+                           ("Target retired.\n" if operation == "delete" else
+                            "[Target](renamed.md#existing-section)\n" if operation == "rename" else
+                            "[Target](target.md#new-section)\n"))
+                self.assert_docs_range(base, self.commit())
+
+    def test_unchanged_inbound_sources_ignore_unrelated_preexisting_link_errors(self):
+        self.write("docs/target.md", "# Target\n\n## Existing section\nOriginal prose.\n")
+        self.write("README.md", "# Root\n\n[Target](docs/target.md#existing-section)\n"
+                   "[Unrelated pre-existing issue](missing.md)\n")
+        base = self.commit()
+        self.write("docs/target.md", "# Target\n\n## Existing section\nUpdated prose.\n")
+        self.assert_docs_range(base, self.commit())
+
+    def test_ordinary_docs_pr_merge_base_and_complete_push_range_remain_distinct(self):
+        self.write("docs/user-guide.md", "# Guide\n\nBaseline prose.\n")
+        common = self.commit()
+        self.write("docs/user-guide.md", "# Guide\n\nNew prose.\n")
+        head = self.commit()
+        self.git("checkout", "--detach", common)
+        self.write("native/changed.cpp", "Restricted branch change.\n")
+        base = self.commit()
+        pr = self.docs_command("classify", base, head)
+        push = self.docs_command("classify", base, head, push=True)
+        self.assertEqual(json.loads(pr.stdout)["lane"], "docs")
+        self.assertEqual(json.loads(push.stdout)["lane"], "windows")
 
 
 class GateTests(unittest.TestCase):

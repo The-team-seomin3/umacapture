@@ -32,6 +32,10 @@ GUIDANCE = {
     "docs/agents/contracts.md": {"Research handoffs", "Local storage and worktree handoff"},
     "docs/agents/teams.md": {"Responsibility map", "Shared work and handoffs"},
 }
+# Ordinary manuals are document-only inputs. Policy guidance, evidence and the
+# exact #42 companion document keep their existing specialized admissions.
+PROTECTED_MANUALS = {"docs/fork-network-policy.md", "docs/korean-ui-localization.md"}
+PROTECTED_MANUAL_TREES = ("docs/agents/", "docs/validation/")
 MASTER_MIGRATIONS = {
     WORKFLOW: ("on:\n  pull_request:\n    branches: [develop]\n", "on:\n  pull_request:\n    branches: [master]\n"),
     WARM_WORKFLOW: ("on:\n  push:\n    branches: [develop]\n", "on:\n  push:\n    branches: [master]\n"),
@@ -216,17 +220,72 @@ def master_branch_baseline(before, after, path):
     return before.replace(old, new, 1)
 
 
+def ordinary_manual(path):
+    """Recognize canonical ordinary docs Markdown, never executable/assets/policy."""
+    if (not isinstance(path, str) or "\\" in path
+            or any(ord(character) < 32 or ord(character) == 127 for character in path)):
+        return False
+    parts = path.split("/")
+    return (len(parts) >= 2 and parts[0] == "docs" and path.endswith(".md")
+            and all(part and not part.startswith(".") for part in parts)
+            and parts[-1] != "AGENTS.md" and path not in PROTECTED_MANUALS
+            and not path.startswith(PROTECTED_MANUAL_TREES))
+
+
+def navigation_table_baseline(text):
+    """Remove only simple manual-link rows in AGENTS' existing navigation table.
+
+    All heading/table scaffolding and other prose remain protected. This admits
+    #70's added two-cell manual link without admitting arbitrary AGENTS sections.
+    """
+    lines = text.splitlines(keepends=True)
+    removed, inside, table = set(), False, 0
+    for index, line in unfenced_lines(lines):
+        stripped = line.rstrip("\n")
+        if stripped.startswith("## "):
+            inside, table = stripped == "## Find the needed document", 0
+            continue
+        if not inside:
+            continue
+        if stripped == "| Need | Read next |":
+            table = 1
+            continue
+        if table == 1:
+            table = 2 if stripped == "| --- | --- |" else 0
+            continue
+        if table != 2:
+            continue
+        if not stripped.startswith("|"):
+            table = 0
+            continue
+        row = re.fullmatch(r"\| ([^|`\[\]<>]{1,120}) \| \[([^|\[\]<>]{1,160})\]\(([^()\s<>]+)\) \|", stripped)
+        if row:
+            target = urlsplit(row[3])
+            if (not target.scheme and not target.netloc and not target.query
+                    and ordinary_manual(unquote(target.path))):
+                removed.add(index)
+    return "".join(line for index, line in enumerate(lines) if index not in removed)
+
+
 def guidance_only(path, before, after):
     old_protected, old_sections = guidance_sections(before, path)
     new_protected, new_sections = guidance_sections(after, path)
     if path in MASTER_MIGRATIONS:
         old_protected = master_branch_baseline(old_protected, new_protected, path)
-    return bool(new_sections) and old_sections.keys() <= new_sections.keys() and old_protected == new_protected
+    navigation_changed = False
+    if path == "AGENTS.md":
+        old_navigation = navigation_table_baseline(old_protected)
+        new_navigation = navigation_table_baseline(new_protected)
+        navigation_changed = old_protected != new_protected and old_navigation == new_navigation
+        old_protected, new_protected = old_navigation, new_navigation
+    return ((bool(new_sections) or navigation_changed) and old_sections.keys() <= new_sections.keys()
+            and old_protected == new_protected)
 
 
 def classify_paths(paths, workflows=None, documents=None, flutter_blobs=None):
     paths = set(paths)
-    unknown = paths - PORTABLE - ROUTED_WORKFLOWS - GUIDANCE.keys() - FLUTTER_ADMISSION.keys()
+    manuals = {path for path in paths if ordinary_manual(path)}
+    unknown = paths - PORTABLE - ROUTED_WORKFLOWS - GUIDANCE.keys() - FLUTTER_ADMISSION.keys() - manuals
     if not paths or unknown:
         return "windows"
     for path in paths & GUIDANCE.keys():
@@ -255,7 +314,7 @@ def classify_paths(paths, workflows=None, documents=None, flutter_blobs=None):
         return "flutter"
     if paths == FLUTTER_BOOTSTRAP_PATHS:
         return "flutter-bootstrap"
-    return "docs" if paths <= GUIDANCE.keys() else "portable"
+    return "docs" if paths <= GUIDANCE.keys() | manuals else "portable"
 
 
 def git(*args):
@@ -286,7 +345,7 @@ def changed_texts(paths, base, head):
 
 
 def regular_blob_digest(ref, path):
-    entry = git("ls-tree", ref, "--", path)
+    entry = git("ls-tree", ref, "--", ":(literal)" + path)
     if not entry:
         return None
     if entry.split()[:2] != [b"100644", b"blob"]:
@@ -298,11 +357,22 @@ def regular_blob_digest(ref, path):
 def classify_refs(base, head, *, push=False):
     paths = changed_paths(base, head, push=push)
     comparison_base = base if push else git("merge-base", base, head).decode().strip()
+    # Check both existing sides: additions/deletions of ordinary manuals are
+    # eligible, but executable modes, symlinks, submodules and mode changes are not.
+    for path in paths:
+        if ordinary_manual(path) or path in GUIDANCE or path in PORTABLE or path in ROUTED_WORKFLOWS:
+            for ref in (comparison_base, head):
+                entry = git("ls-tree", ref, "--", ":(literal)" + path)
+                if entry:
+                    if entry.split()[:2] != [b"100644", b"blob"]:
+                        return "windows", paths
+                    if ordinary_manual(path):
+                        try:
+                            git("show", ref + ":" + path).decode("utf-8")
+                        except UnicodeDecodeError:
+                            return "windows", paths
     workflows = changed_texts(set(paths) & ROUTED_WORKFLOWS, comparison_base, head)
     documents = changed_texts(set(paths) & GUIDANCE.keys(), comparison_base, head)
-    for path in list(documents):
-        if any(git("ls-tree", ref, "--", path).split()[0] != b"100644" for ref in (comparison_base, head)):
-            del documents[path]
     flutter_blobs = {}
     for path in set(paths) & FLUTTER_ADMISSION.keys():
         try:
@@ -353,20 +423,188 @@ def check_guidance(text, path, files):
             raise ValueError(f"{path}: missing or unsupported local link target {destination}")
 
 
+def manual_prose(text):
+    """Exclude examples and comments from ordinary Markdown links/headings."""
+    text = re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
+    lines = [line for _, line in unfenced_lines(text.splitlines(keepends=True))]
+    return "".join(line for line in lines if not line.startswith(("    ", "\t")))
+
+
+def manual_destinations(text, path, *, strict=True):
+    """Read inline/reference Markdown and HTML links without fetching URLs.
+
+    Unsupported links fail changed manuals. Inbound checks tolerate unrelated
+    syntax in unchanged documents and inspect only resolved affected targets.
+    """
+    from html import unescape
+
+    try:
+        prose = manual_prose(text)
+    except ValueError:
+        if strict:
+            raise
+        prose = text
+    prose = re.sub(r"(`+).*?\1", "", prose, flags=re.DOTALL)
+    destination = r'(?:<[^>\n]*>|(?:\\.|[^\s()<>]|\([^()\n]*\))*)'
+    title = r'''(?:\s+(?:"[^"\n]*"|'[^'\n]*'|\([^()\n]*\)))?'''
+    inline = list(re.finditer(r"(?<!\\)\]\(\s*(" + destination + title + r")\s*\)", prose))
+    if strict and len(re.findall(r"(?<!\\)\]\(", prose)) != len(inline):
+        raise ValueError(f"{path}: unsupported inline link syntax")
+    references = {}
+    for label, raw in re.findall(r"(?m)^ {0,3}\[([^\]\n]+)\]:[ \t]*(.*)$", prose):
+        key = " ".join(label.casefold().split())
+        if key in references:
+            if strict:
+                raise ValueError(f"{path}: duplicate link reference {label}")
+            continue
+        references[key] = raw
+    for label, reference in re.findall(r"\[([^\]\n]+)\]\[([^\]\n]*)\]", prose):
+        key = " ".join((reference or label).casefold().split())
+        if strict and key not in references:
+            raise ValueError(f"{path}: undefined link reference {reference or label}")
+    raw_destinations = [match[1] for match in inline] + list(references.values())
+    result = []
+    for raw in raw_destinations:
+        match = re.fullmatch(r"\s*(" + destination + r")" + title + r"\s*", raw)
+        if not match:
+            if strict:
+                raise ValueError(f"{path}: unsupported link destination {raw}")
+            continue
+        result.append(unescape(re.sub(r"\\([!\"#$%&'()*+,\-./:;<=>?@\[\\\]^_`{|}~])", r"\1", match[1].strip("<>"))))
+    result.extend(unescape(match[2]) for match in re.finditer(
+        r'''<(?:a|img)\b[^>]*?\b(?:href|src)\s*=\s*(["'])(.*?)\1''', prose, re.IGNORECASE))
+    return result
+
+
+def manual_anchors(text):
+    """GitHub-style heading slugs, duplicate suffixes and explicit HTML IDs."""
+    from html import unescape
+
+    prose = manual_prose(text)
+    anchors = {unescape(match[2]) for match in re.finditer(
+        r'''<[^>]*\b(?:id|name)\s*=\s*(["'])(.*?)\1''', prose, re.IGNORECASE)}
+    used = set()
+    previous = ""
+    for line in prose.splitlines():
+        match = re.match(r"^ {0,3}#{1,6}(?:[ \t]+|$)(.*)$", line)
+        heading = None
+        if match:
+            heading = re.sub(r"[ \t]+#+[ \t]*$", "", match[1]).strip()
+        elif previous.strip() and re.fullmatch(r" {0,3}(?:=+|-+)\s*", line):
+            heading = previous.strip()
+        previous = line
+        if heading is None:
+            continue
+        heading = re.sub(r"!?\[([^\]]*)\]\([^)]*\)", r"\1", heading)
+        heading = re.sub(r"<[^>]+>", "", heading)
+        heading = unescape(heading).lower().replace("`", "")
+        heading = re.sub(r"(?<!\w)_{1,2}([^_]+)_{1,2}(?!\w)", r"\1", heading)
+        slug = "".join(character for character in heading if character.isalnum() or character in "_ -")
+        slug = slug.replace(" ", "-")
+        candidate, suffix = slug, 0
+        while candidate in used:
+            suffix += 1
+            candidate = f"{slug}-{suffix}"
+        used.add(candidate)
+        anchors.add(candidate)
+    return anchors
+
+
+def local_manual_link(destination, path):
+    url = urlsplit(destination)
+    if url.scheme or url.netloc:
+        return None
+    decoded = unquote(url.path)
+    if "\\" in decoded or "\x00" in decoded:
+        raise ValueError(f"{path}: unsupported local link destination {destination}")
+    target = posixpath.normpath(posixpath.join(posixpath.dirname(path), decoded)) if decoded else path
+    if target.startswith("../") or target.startswith("/"):
+        raise ValueError(f"{path}: local link escapes the repository {destination}")
+    return target, unquote(url.fragment)
+
+
+def check_manual_link(destination, path, files, read_document, *, anchors=True):
+    local = local_manual_link(destination, path)
+    if local is None:
+        return
+    target, fragment = local
+    if target not in files:
+        raise ValueError(f"{path}: missing local link target {destination}")
+    if anchors and fragment and target.lower().endswith(".md"):
+        available = manual_anchors(read_document(target))
+        if fragment not in available and fragment.removeprefix("user-content-") not in available:
+            raise ValueError(f"{path}: missing local heading anchor {destination}")
+
+
+def check_manual(text, path, files, read_document):
+    """Check ordinary manuals without imposing the legacy guidance headings."""
+    if "\r" in text or "\x00" in text or text.startswith("\ufeff") or not text.endswith("\n"):
+        raise ValueError(f"{path}: expected UTF-8/LF text, no BOM/NUL and a final newline")
+    for number, line in enumerate(text.splitlines(), 1):
+        trailing = line[len(line.rstrip(" \t")):]
+        if trailing not in ("", "  ") or re.match(r"^(?:<{7}|={7}|>{7})(?:\s|$)", line):
+            raise ValueError(f"{path}:{number}: whitespace or conflict marker")
+    for destination in manual_destinations(text, path):
+        check_manual_link(destination, path, files, read_document)
+
+
 def check_docs(base, head, *, push=False):
-    paths = set(changed_paths(base, head, push=push)) & GUIDANCE.keys()
+    from collections import Counter
+
+    changed = set(changed_paths(base, head, push=push))
+    manuals = {path for path in changed if ordinary_manual(path)}
+    paths = (changed & GUIDANCE.keys()) | manuals
     if not paths:
         return "No changed guidance files; documentation checks are not applicable."
-    git("diff", "--check", base + (".." if push else "...") + head, "--", *sorted(paths))
-    files = {p.decode("utf-8") for p in git("ls-tree", "-r", "-t", "--name-only", "-z", head).split(b"\0") if p}
-    for path in sorted(paths):
-        try:
-            text = git("show", head + ":" + path).decode("utf-8")
-        except subprocess.CalledProcessError:
-            # A deletion cannot select docs; product lanes retain their own checks.
+    git("diff", "--check", base + (".." if push else "...") + head, "--",
+        *(":(literal)" + path for path in sorted(paths)))
+    entries = {}
+    for entry in git("ls-tree", "-r", "-t", "-z", head).split(b"\0"):
+        if entry:
+            metadata, name = entry.split(b"\t", 1)
+            entries[name.decode("utf-8")] = metadata.split()[:2]
+    files = set(entries)
+    texts = {}
+
+    def read_document(path):
+        if path not in texts:
+            texts[path] = git("show", head + ":" + path).decode("utf-8")
+        return texts[path]
+
+    for path in sorted(paths & files):
+        if path in manuals and entries[path] != [b"100644", b"blob"]:
             continue
-        check_guidance(text, path, files)
-    return "Changed guidance UTF-8/LF, structure, whitespace and local file links passed."
+        text = read_document(path)
+        if path in manuals:
+            check_manual(text, path, files, read_document)
+        else:
+            check_guidance(text, path, files)
+            if path == "AGENTS.md":
+                comparison_base = base if push else git("merge-base", base, head).decode().strip()
+                before = ""
+                if git("ls-tree", comparison_base, "--", path):
+                    before = git("show", comparison_base + ":" + path).decode("utf-8")
+                added_links = Counter(manual_destinations(text, path, strict=False)) - Counter(
+                    manual_destinations(before, path, strict=False))
+                for destination in added_links:
+                    local = local_manual_link(destination, path)
+                    if local is not None and ordinary_manual(local[0]):
+                        check_manual_link(destination, path, files, read_document)
+    # Deleting/renaming a manual or changing its headings can break a reader that
+    # did not change. Check only inbound references to affected manual paths.
+    if manuals:
+        for path, metadata in entries.items():
+            if metadata not in ([b"100644", b"blob"], [b"100755", b"blob"]) or not path.lower().endswith(".md"):
+                continue
+            text = git("show", head + ":" + path).decode("utf-8", errors="replace")
+            for destination in manual_destinations(text, path, strict=False):
+                try:
+                    local = local_manual_link(destination, path)
+                except ValueError:
+                    continue
+                if local is not None and local[0] in manuals:
+                    check_manual_link(destination, path, files, read_document)
+    return "Changed documentation content, local file links, heading anchors and affected inbound references passed."
 
 
 def verify_gate(needs, context):
