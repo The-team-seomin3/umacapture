@@ -31,6 +31,8 @@ Ordinary non-executable Markdown manuals under `docs/` use the Linux documentati
 lane. This includes new manuals and moves between eligible paths. The lightweight
 job runs the routing tests and checks document content, local links and affected
 references when a manual moves or disappears. Both ends of a move must qualify.
+A navigation row in the root agent guide can link to an ordinary manual using
+either `docs/guide.md` or `/docs/guide.md`. In manuals, `/` links to the repository root.
 Scripts, evidence under `docs/validation/`, policy files, the #42 companion
 document and the root README retain their existing routing. When introducing a
 build, package or test dependency on a manual, update the classifier in the same change.

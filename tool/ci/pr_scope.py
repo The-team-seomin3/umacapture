@@ -232,6 +232,15 @@ def ordinary_manual(path):
             and not path.startswith(PROTECTED_MANUAL_TREES))
 
 
+def navigation_manual(destination):
+    """Accept either canonical spelling of a link to an ordinary manual."""
+    url = urlsplit(destination)
+    if url.scheme or url.netloc or url.query or destination.startswith("//"):
+        return None
+    path = unquote(url.path.removeprefix("/"))
+    return path if ordinary_manual(path) else None
+
+
 def navigation_table_baseline(text):
     """Remove only simple manual-link rows in AGENTS' existing navigation table.
 
@@ -259,11 +268,8 @@ def navigation_table_baseline(text):
             table = 0
             continue
         row = re.fullmatch(r"\| ([^|`\[\]<>]{1,120}) \| \[([^|\[\]<>]{1,160})\]\(([^()\s<>]+)\) \|", stripped)
-        if row:
-            target = urlsplit(row[3])
-            if (not target.scheme and not target.netloc and not target.query
-                    and ordinary_manual(unquote(target.path))):
-                removed.add(index)
+        if row and navigation_manual(row[3]):
+            removed.add(index)
     return "".join(line for index, line in enumerate(lines) if index not in removed)
 
 
@@ -419,6 +425,8 @@ def check_guidance(text, path, files):
         if any(character in destination for character in "\\()"):
             raise ValueError(f"{path}: unsupported local link destination {destination}")
         target = posixpath.normpath(posixpath.join(posixpath.dirname(path), unquote(url.path)))
+        if path == "AGENTS.md" and url.path.startswith("/"):
+            target = navigation_manual(destination) or target
         if target.startswith("../") or target.startswith("/") or target not in files:
             raise ValueError(f"{path}: missing or unsupported local link target {destination}")
 
@@ -431,8 +439,10 @@ def manual_prose(text):
     # Strip that container before distinguishing prose from a code example.
     content_columns = [0]
     fence = None
+    paragraph_open = False
     for line in text.expandtabs(4).splitlines(keepends=True):
         if not line.strip():
+            paragraph_open = False
             visible.append("\n")
             continue
         indent = len(line) - len(line.lstrip(" "))
@@ -442,6 +452,7 @@ def manual_prose(text):
         if fence is None:
             item = re.match(r"^ {0,3}(?:[-*+]|[0-9]{1,9}[.)])(?: {1,4}(?! )| )", content)
             if item:
+                paragraph_open = False
                 content_columns.append(content_columns[-1] + item.end())
                 content = content[item.end():]
         marker = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", content.rstrip("\n"))
@@ -450,7 +461,14 @@ def manual_prose(text):
                 fence = None
         elif marker:
             fence = marker[1]
-        elif not content.startswith("    "):
+            paragraph_open = False
+        elif paragraph_open or not content.startswith("    "):
+            # Indented code cannot interrupt an open paragraph. Block headings
+            # and thematic breaks, unlike wrapped prose, end the paragraph.
+            block_end = re.fullmatch(
+                r" {0,3}(?:#{1,6}(?:[ \t].*|$)|=+|-+|([-*_])(?:[ \t]*\1){2,})[ \t]*", content.rstrip("\n")
+            )
+            paragraph_open = bool(content.strip()) and not block_end
             visible.append(content)
     if fence is not None:
         raise ValueError("Unclosed manual code fence")
@@ -558,7 +576,7 @@ def check_manual_link(destination, path, files, read_document, *, anchors=True):
     if local is None:
         return
     target, fragment = local
-    if target not in files:
+    if target != "." and target not in files:
         raise ValueError(f"{path}: missing local link target {destination}")
     if anchors and fragment and target.lower().endswith(".md"):
         available = manual_anchors(read_document(target))

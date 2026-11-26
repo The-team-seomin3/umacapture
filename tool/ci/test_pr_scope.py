@@ -543,15 +543,17 @@ class GitScopeTests(unittest.TestCase):
         self.write("AGENTS.md", self.navigation_text())
         self.write("docs/windows-ocr-variants.md", "# Variants\n\n## Local delivery\nInstructions.\n")
         base = self.commit()
-        self.write("AGENTS.md", self.navigation_text("docs/windows-ocr-variants.md#missing-section"))
-        broken = self.commit()
-        for push in (False, True):
-            classified = self.docs_command("classify", base, broken, push=push)
-            self.assertEqual(json.loads(classified.stdout)["lane"], "docs")
-            checked = self.docs_command("check-docs", base, broken, push=push)
-            self.assertNotEqual(checked.returncode, 0)
-        self.write("AGENTS.md", self.navigation_text("docs/windows-ocr-variants.md#local-delivery"))
-        self.assert_docs_range(base, self.commit())
+        for prefix in ("", "/"):
+            for target in ("docs/windows-ocr-variants.md#missing-section", "docs/missing.md"):
+                self.write("AGENTS.md", self.navigation_text(prefix + target))
+                broken = self.commit()
+                for push in (False, True):
+                    classified = self.docs_command("classify", base, broken, push=push)
+                    self.assertEqual(json.loads(classified.stdout)["lane"], "docs")
+                    checked = self.docs_command("check-docs", base, broken, push=push)
+                    self.assertNotEqual(checked.returncode, 0)
+            self.write("AGENTS.md", self.navigation_text(prefix + "docs/windows-ocr-variants.md#local-delivery"))
+            self.assert_docs_range(base, self.commit())
 
     def test_ordinary_manual_mixtures_retain_restricted_and_portable_routes(self):
         self.write("docs/user-guide.md", "# Guide\n\nOriginal prose.\n")
@@ -627,7 +629,8 @@ class GitScopeTests(unittest.TestCase):
         self.write("docs/target.md", "# Target\n")
         base = self.commit()
         readers = (("- One\n  - Two\n    - [Target](target.md)\n", 10),
-                   ("[Target](/docs/target.md#target)\n", 4))
+                   ("- Install\n  - Setup details:\n        Read [Target](target.md) before continuing.\n", 8),
+                   ("[Target](/docs/target.md#target) and [Root](/)\n", 4))
         for source, code_indent in readers:
             with self.subTest(source=source):
                 self.git("checkout", "--detach", base)
@@ -650,6 +653,13 @@ class GitScopeTests(unittest.TestCase):
                     for push in (False, True):
                         check = self.docs_command("check-docs", good, head, push=push)
                         self.assertIn("missing local link target", check.stderr)
+
+    def test_blank_line_starts_indented_code_in_an_unchanged_list_reader(self):
+        self.write("docs/target.md", "# Target\n")
+        self.write("docs/reader.md", "- Install\n  - Setup details:\n\n        Read [Example](target.md).\n")
+        base = self.commit()
+        (self.root / "docs/target.md").unlink()
+        self.assert_docs_range(base, self.commit())
 
     def test_deletion_rename_and_heading_edits_check_affected_inbound_links(self):
         self.write("docs/target.md", "# Target\n\n## Existing section\nOriginal prose.\n")
