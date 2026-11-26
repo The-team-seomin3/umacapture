@@ -45,14 +45,30 @@ define as the UI, not a separate environment switch.
 
 ## Deliver the Windows KR app to the owner
 
-For each owner-facing Windows build, keep the verified build output and copy
-the contents of its `kr/` package directly into `.release/` at the root of the
-owner's primary checkout. The stable launch path is `.release/umacapture_kr.exe`,
-including when the build was produced in a separate worktree.
+Keep each verified Windows KR package in its own local build directory. The
+owner launches `.release/umacapture_kr.exe` in the primary checkout. On this
+Windows host, `.release` is a **directory symbolic link** to the selected
+package's `kr/` directory. Keep both the active and previous packages available.
 
-Deliver the executable, DLLs, data, bundled tools and build manifest together.
-Verify the delivered relative file list and SHA-256 hashes against the source
-package before handing the owner the launch path. Keep generated binaries local.
+1. Build into a fresh output directory. Check the source revision, complete file
+   inventory and SHA-256 hashes against the build manifest. Create a temporary
+   sibling link to the package and verify the target, executable and bundled
+   tools through that link. If verification fails, leave the current delivery in place.
+2. With the app closed, rename the current delivery aside, then rename the
+   verified link to `.release`. On first migration from a real directory, first
+   compare its full inventory and hashes with the retained previous package.
+   Stop if it contains other files. On first delivery there is no previous entry.
+3. Set the saved KR workflow adapter once to the absolute path to
+   `.release/tool/kr_factor_ocr/kr_factor_app.py` in the primary checkout.
+   A saved version-specific adapter overrides the executable-relative default.
+   Back up the settings before changing this field. Verify the launch path and
+   that the configured Python resolves the adapter, OCR module and exporter
+   through the stable path to the selected package.
+4. If the switch or verification fails, remove only the new link, restore the
+   previous entry to `.release` and restore any settings changed during the
+   switch. After success, unlink the superseded link without traversing it.
+   Remove a superseded physical copy only after verifying it matches the
+   retained package. Future deliveries switch the link with the app closed.
 
 ## Sequential application use and data safety
 
