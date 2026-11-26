@@ -27,16 +27,22 @@ and corresponding contribution-rule branch reference can migrate on Linux.
 Other event/header changes and Windows step/runner/matrix changes require the
 Windows lane.
 
-The separate documentation lane is limited to the `Issue context and decision
-continuity` section in `AGENTS.md`, and the `Research handoffs` and `Local storage
-and worktree handoff` sections in `docs/agents/contracts.md`. The rest of each file
-must stay unchanged. Eligible guidance runs standard-library routing/gate tests,
-UTF-8/LF, whitespace, conflict-marker, section and local file-link checks on Linux.
-It skips the pinned OCR/CLI suite and Windows jobs. Deletions, renames, malformed
-sections and product-contract edits retain the applicable conservative route.
-Guidance mixed with CLI or CI-support changes runs the portable suite when all
-changes qualify; mixed product or unknown changes require Windows. Policy and
-specialist review still apply to guidance changes.
+Ordinary non-executable Markdown manuals under `docs/` use the Linux documentation
+lane. This includes new manuals and moves between eligible paths. The lightweight
+job runs the routing tests and checks document content, local links and affected
+references when a manual moves or disappears. Both ends of a move must qualify.
+A navigation row in the root agent guide can link to an ordinary manual using
+either `docs/guide.md` or `/docs/guide.md`. In manuals, `/` links to the repository root.
+Scripts, evidence under `docs/validation/`, policy files, the #42 companion
+document and the root README retain their existing routing. When introducing a
+build, package or test dependency on a manual, update the classifier in the same change.
+
+The bounded sections in `docs/agents/contracts.md`, `docs/agents/teams.md` and
+`AGENTS.md` retain their guidance checks. The root agent guide also admits simple
+document-link rows in its “Find the needed document” table. Changes to other
+policy text retain the conservative route. Specialist review still applies.
+Eligible manuals mixed with portable CLI or CI-support changes run the portable
+suite. Unknown or nonportable changes select Windows.
 
 The existing native/Flutter required check names are always-run routing gates.
 For guidance changes they require successful lightweight checks and explicit
