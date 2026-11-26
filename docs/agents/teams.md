@@ -11,10 +11,11 @@ staff chats, replace existing task owners, or authorize their product backlogs.
 
 | Team | Primary responsibility | Typical boundaries and coordination |
 | --- | --- | --- |
-| General Team | Coordinate approved priorities, integration, shared contracts, project guidance and documentation, CI, Windows builds/packages and release readiness. | Coordinate #11/#15 and separately approved #16 work. Domain teams maintain documentation and validation for their own changes. Coordination does not require General approval of every routine implementation choice. |
+| General Team | Coordinate approved priorities, integration, shared contracts, project guidance and documentation, and hosted CI policy. | Coordinate #11/#15 and separately approved #16 work. Domain teams maintain documentation and validation for their own changes. Coordination does not require General approval of every routine implementation choice. |
 | Recognition Team | Capture, scene scraping/stitching, recognition, the independent Korean-factor postprocessor, factor ID/star/group correctness and native record production. | Own producer behavior such as #24 and technical acceptance of capture evidence. Preserve Japanese paths, the accepted #5 offline boundary and separately managed deliveries such as PR #26. |
-| Capture Data Team (Windows, under Recognition) | Verify Windows source evidence within existing authorizations, including capture/version bindings, hashes and correspondence to original records or images. | Preserve authorized originals and prepare evidence for Recognition. Recognition owns the technical verdict. Collabo coordinates authorized transfers and intake. General coordinates Windows builds and release readiness. |
-| App Team | Flutter UI/localization, settings/presets, statistics/filters, local storage and consumer/export behavior. | Own display and aggregation work such as #10/#21/#22/#23. Coordinate record semantics with Recognition and final Windows packaging with General. |
+| Capture Data Team (Windows, under Recognition) | Verify Windows source evidence within existing authorizations, including capture/version bindings, hashes and correspondence to original records or images. | Preserve authorized originals and prepare evidence for Recognition. Recognition owns the technical verdict. Collabo coordinates authorized transfers and intake. Route package verification to Windows Build Team. |
+| App Team | Flutter UI/localization, settings/presets, statistics/filters, local storage and consumer/export behavior. | Own display and aggregation work such as #10/#21/#22/#23. Coordinate record semantics with Recognition and final Windows packaging with Windows Build Team. |
+| Windows Build Team | Build and package authorized Windows desktop variants, verify package readiness, perform scoped Windows-only checks and deliver the verified package to the owner. | Record requests and results on the work issue. The owner approves local activation and retains actual-use acceptance. |
 | Collabo Team | Coordinate Scout/Evaluator requests, bounded source availability checks, authorized private artifact designation/transfer, and source/version/hash/intake-state records. | Retain existing handoffs. Recognition/App or the receiving repository's responsible team validates technical meaning; successful transfer is not validation, acceptance or feature completion. |
 
 Issue references illustrate routing, not implementation authorization or current
@@ -23,7 +24,9 @@ source before acting. A dated status page or an open issue alone is insufficient
 These domains do not give one team exclusive ownership of whole directories.
 
 The [owner decision on Windows evidence support](https://github.com/The-team-seomin3/global-agent-settings/issues/170#issuecomment-7058176097)
-records Capture Data Team's placement under Recognition.
+records Capture Data Team's placement under Recognition. The
+[#74 owner decision](https://github.com/The-team-seomin3/umacapture/issues/74)
+transfers Windows desktop delivery from General to the existing Windows Build Team.
 
 ## General Team manager
 
@@ -49,7 +52,7 @@ records Capture Data Team's placement under Recognition.
    issue before dependent cross-team edits; General coordinates unresolved overlap.
 2. **Use the appropriate channel.** Design-team proposals, questions, evidence and
    decisions belong in the relevant GitHub issue; independent review uses a scoped
-   submitted PR. Use the issue-based procedure below for Windows source evidence.
+   submitted PR. Use the issue-based procedure below for Windows build requests and source evidence.
    For other authorized development-team handoffs, verify the existing
    destination chat and repository, then transmit the bounded task under applicable
    standing/user authorization. Do not create a chat without an explicit request.
@@ -74,6 +77,18 @@ records Capture Data Team's placement under Recognition.
    Preserve existing publication, review/merge, deployment and installed-settings
    protections. Keep private paths and raw game/account material out of public posts.
 
+### Windows desktop build handoff
+
+1. The requesting team posts the exact source commit, Windows variant, expected
+   deliverable and authorized checks on the relevant work issue.
+2. Windows Build Team reports on that issue the revision and variant actually
+   built, the package identifier and digest (or verified manifest), the readiness
+   checks and their results, and any failure or unrun check. A verified and
+   authorized Windows-to-Linux chat may carry the result permalink.
+3. When the owner authorizes local activation, follow the
+   [KR package delivery procedure](../windows-ocr-variants.md#deliver-the-windows-kr-app-to-the-owner)
+   for the KR variant. The owner performs actual-use acceptance.
+
 ### Linux and Windows source-evidence handoff
 
 1. Linux Recognition Team posts the request on the relevant umacapture work
@@ -94,9 +109,9 @@ records Capture Data Team's placement under Recognition.
 
 ## Validation and staffing
 
-Each delivering team owns proportionate checks and reports Passed / Failed /
-Not Tested with source/run provenance; independent PR review remains separate.
-General coordinates integrated build/package evidence without treating CI as
-runtime acceptance. No separate standing QA or Data & Research team is required
-by this structure. Reconsider a Platform/Release split only when sustained
-build/distribution work justifies it and the owner adopts the change.
+Domain teams validate their own changes, including compilation for tests, and
+report Passed / Failed / Not Tested with source and run provenance. General
+coordinates integration and hosted CI policy. Windows Build Team verifies the
+desktop package and reports the scope exercised. Independent PR review and
+owner actual-use acceptance remain separate. This structure requires no separate
+standing QA or Data & Research team.

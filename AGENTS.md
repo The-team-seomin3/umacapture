@@ -21,11 +21,14 @@ owner operating boundary; reuse the accepted owner-operated capture evidence.
 
 The owner adopted **General Team**, **Recognition Team**, **App Team** and the
 existing **Collabo Team** in [#27](https://github.com/The-team-seomin3/umacapture/issues/27).
-General coordinates integration, guidance, CI and Windows delivery; Recognition
-owns capture/recognition and record production; App owns Flutter UI, local storage
-and consumer/export behavior; Collabo coordinates authorized cross-repository
-requests and evidence delivery. Use the [team responsibility map](docs/agents/teams.md)
-for boundaries, manager responsibilities and handoffs before routing team work.
+General coordinates repository integration, shared contracts, guidance and hosted CI policy.
+Recognition owns capture, recognition and record production. App owns Flutter UI, local
+storage and consumer/export behavior. Collabo coordinates authorized cross-repository
+requests and evidence delivery. Under [#74](https://github.com/The-team-seomin3/umacapture/issues/74),
+the existing **Windows Build Team** owns authorized Windows desktop builds, packaging,
+package readiness, delivery and scoped Windows-only verification. Record build requests
+and results on the [relevant work issue](docs/agents/teams.md#windows-desktop-build-handoff).
+See the [team responsibility map](docs/agents/teams.md) for boundaries and handoffs.
 Select one primary team per approved change, reuse active work and retain its
 existing owner until an explicit handoff. Team names grant no new implementation,
 publication, merge, deployment or private-data access authority.
