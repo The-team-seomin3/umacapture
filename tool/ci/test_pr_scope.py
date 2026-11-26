@@ -614,7 +614,7 @@ class GitScopeTests(unittest.TestCase):
                    "[Self](#user-guide) [Remote](https://example.invalid/unavailable#missing)\n")
         good = self.commit()
         self.assert_docs_range(base, good)
-        for target in ("missing.md", "target%20guide.md#missing", "#missing", "../../outside.md"):
+        for target in ("missing.md", "target%20guide.md#missing", "#missing", "../../outside.md", "/../docs/target%20guide.md"):
             with self.subTest(target=target):
                 self.git("checkout", "--detach", good)
                 self.write("docs/user-guide.md", f"# User guide\n\n[Broken]({target})\n")
@@ -622,6 +622,34 @@ class GitScopeTests(unittest.TestCase):
                 for push in (False, True):
                     result = self.docs_command("check-docs", base, head, push=push)
                     self.assertNotEqual(result.returncode, 0)
+
+    def test_nested_list_and_root_links_in_changed_and_unchanged_documents(self):
+        self.write("docs/target.md", "# Target\n")
+        base = self.commit()
+        readers = (("- One\n  - Two\n    - [Target](target.md)\n", 10),
+                   ("[Target](/docs/target.md#target)\n", 4))
+        for source, code_indent in readers:
+            with self.subTest(source=source):
+                self.git("checkout", "--detach", base)
+                example = " " * code_indent + "[Example](missing.md)\n"
+                self.write("docs/reader.md", source + "\n" + example)
+                good = self.commit()
+                self.assert_docs_range(base, good)
+                self.write("docs/reader.md", source.replace("target.md", "missing.md"))
+                bad = self.commit()
+                for push in (False, True):
+                    check = self.docs_command("check-docs", good, bad, push=push)
+                    self.assertIn("missing local link target", check.stderr)
+                for operation in ("delete", "rename"):
+                    self.git("checkout", "--detach", good)
+                    if operation == "delete":
+                        (self.root / "docs/target.md").unlink()
+                    else:
+                        self.git("mv", "docs/target.md", "docs/moved.md")
+                    head = self.commit()
+                    for push in (False, True):
+                        check = self.docs_command("check-docs", good, head, push=push)
+                        self.assertIn("missing local link target", check.stderr)
 
     def test_deletion_rename_and_heading_edits_check_affected_inbound_links(self):
         self.write("docs/target.md", "# Target\n\n## Existing section\nOriginal prose.\n")

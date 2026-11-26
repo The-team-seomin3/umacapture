@@ -426,8 +426,35 @@ def check_guidance(text, path, files):
 def manual_prose(text):
     """Exclude examples and comments from ordinary Markdown links/headings."""
     text = re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
-    lines = [line for _, line in unfenced_lines(text.splitlines(keepends=True))]
-    return "".join(line for line in lines if not line.startswith(("    ", "\t")))
+    visible = []
+    # List indentation is relative to the start of the parent item's content.
+    # Strip that container before distinguishing prose from a code example.
+    content_columns = [0]
+    fence = None
+    for line in text.expandtabs(4).splitlines(keepends=True):
+        if not line.strip():
+            visible.append("\n")
+            continue
+        indent = len(line) - len(line.lstrip(" "))
+        while len(content_columns) > 1 and indent < content_columns[-1]:
+            content_columns.pop()
+        content = line[content_columns[-1]:]
+        if fence is None:
+            item = re.match(r"^ {0,3}(?:[-*+]|[0-9]{1,9}[.)])(?: {1,4}(?! )| )", content)
+            if item:
+                content_columns.append(content_columns[-1] + item.end())
+                content = content[item.end():]
+        marker = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", content.rstrip("\n"))
+        if fence is not None:
+            if marker and marker[1].startswith(fence) and not marker[2].strip():
+                fence = None
+        elif marker:
+            fence = marker[1]
+        elif not content.startswith("    "):
+            visible.append(content)
+    if fence is not None:
+        raise ValueError("Unclosed manual code fence")
+    return "".join(visible)
 
 
 def manual_destinations(text, path, *, strict=True):
@@ -517,8 +544,11 @@ def local_manual_link(destination, path):
     decoded = unquote(url.path)
     if "\\" in decoded or "\x00" in decoded:
         raise ValueError(f"{path}: unsupported local link destination {destination}")
-    target = posixpath.normpath(posixpath.join(posixpath.dirname(path), decoded)) if decoded else path
-    if target.startswith("../") or target.startswith("/"):
+    if url.path.startswith("/"):
+        target = posixpath.normpath(decoded[1:])
+    else:
+        target = posixpath.normpath(posixpath.join(posixpath.dirname(path), decoded)) if decoded else path
+    if target == ".." or target.startswith(("../", "/")):
         raise ValueError(f"{path}: local link escapes the repository {destination}")
     return target, unquote(url.fragment)
 
